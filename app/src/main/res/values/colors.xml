@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Momentum palette · DESIGN.md §3 (light). Night values in values-night/. -->
+<resources>
+    <!-- brand / roles -->
+    <color name="primary">#2F855A</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="primary_container">#E8F7EE</color>
+    <color name="on_primary_container">#0E1B14</color>
+    <color name="secondary">#519075</color>
+    <color name="tertiary">#7FD1B9</color>
+    <color name="background">#F8FBF8</color>
+    <color name="surface">#F5F8F4</color>
+    <color name="surface_card">#FFFFFF</color>
+    <color name="ink">#0E1B14</color>
+    <color name="muted">#5D6D63</color>
+    <color name="outline">#140E1B14</color>          <!-- ink @ 8% -->
+    <color name="cell_empty">#E9EDE7</color>
+    <color name="error">#BA4A3F</color>               <!-- destructive only -->
+    <color name="star">#F4B63F</color>
+
+    <!-- app icon · momentum-icon.svg -->
+    <color name="icon_background">#F9FFEF</color>
+    <color name="icon_stroke">#519075</color>
+
+    <!-- habit icon tints · §3.2 -->
+    <color name="tint_sleep">#D8F0EA</color>
+    <color name="tint_move">#FBEED7</color>
+    <color name="tint_nophone">#FBE3E1</color>
+    <color name="tint_water">#DDEEFC</color>
+
+    <!-- system bars -->
+    <color name="status_bar">#F8FBF8</color>
+    <color name="navigation_bar">#F5F8F4</color>
+
+    <!-- legacy theme colors -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
+

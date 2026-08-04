@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Momentum palette · DESIGN.md §3 (dark). -->
+<resources>
+    <color name="primary">#5CB98A</color>
+    <color name="on_primary">#0E1B14</color>
+    <color name="primary_container">#1D3529</color>
+    <color name="on_primary_container">#EAF4EE</color>
+    <color name="secondary">#7FD1B9</color>
+    <color name="tertiary">#7FD1B9</color>
+    <color name="background">#0B100D</color>
+    <color name="surface">#101712</color>
+    <color name="surface_card">#141B16</color>
+    <color name="ink">#EAF4EE</color>
+    <color name="muted">#9BAFA3</color>
+    <color name="outline">#1AEAF4EE</color>          <!-- ink @ 10% -->
+    <color name="cell_empty">#1D2620</color>
+    <color name="error">#E58A80</color>
+    <color name="star">#F4B63F</color>
+
+    <color name="icon_background">#F9FFEF</color>
+    <color name="icon_stroke">#519075</color>
+
+    <color name="tint_sleep">#1D352F</color>
+    <color name="tint_move">#3A2F1B</color>
+    <color name="tint_nophone">#3A221F</color>
+    <color name="tint_water">#1B2B3A</color>
+
+    <color name="status_bar">#0B100D</color>
+    <color name="navigation_bar">#101712</color>
+</resources>

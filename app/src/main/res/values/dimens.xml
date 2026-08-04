@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Momentum dimensions · DESIGN.md §5–§6. 4dp grid, 8dp rhythm. -->
+<resources>
+    <!-- spacing system -->
+    <dimen name="space_1">4dp</dimen>
+    <dimen name="space_2">8dp</dimen>
+    <dimen name="space_3">12dp</dimen>
+    <dimen name="space_4">16dp</dimen>
+    <dimen name="space_6">24dp</dimen>
+    <dimen name="space_8">32dp</dimen>
+    <dimen name="space_12">48dp</dimen>
+    <dimen name="screen_margin">16dp</dimen>
+    <dimen name="card_padding">16dp</dimen>
+    <dimen name="list_gap">12dp</dimen>
+
+    <!-- radii -->
+    <dimen name="radius_xs">12dp</dimen>
+    <dimen name="radius_md">20dp</dimen>
+    <dimen name="radius_lg">32dp</dimen>
+    <dimen name="radius_cell">8dp</dimen>
+    <dimen name="radius_check">10dp</dimen>
+    <dimen name="radius_dash">4dp</dimen>
+    <dimen name="radius_pill">999dp</dimen>
+
+    <!-- components · §6 -->
+    <dimen name="touch_target">48dp</dimen>          <!-- §5 hard minimum -->
+    <dimen name="mood_button">48dp</dimen>
+    <dimen name="icon_tile">40dp</dimen>
+    <dimen name="check_button">32dp</dimen>
+    <dimen name="habit_row_min">64dp</dimen>
+    <dimen name="habit_row_padding">12dp</dimen>
+    <dimen name="chip_height">34dp</dimen>
+    <dimen name="fab_size">56dp</dimen>
+    <dimen name="bottom_nav_height">64dp</dimen>
+    <dimen name="chain_gap">6dp</dimen>
+    <dimen name="chain_grace_ring">1.5dp</dimen>
+    <dimen name="chain_grace_dot">4dp</dimen>
+    <dimen name="dash_w">26dp</dimen>
+    <dimen name="dash_h">8dp</dimen>
+    <dimen name="stroke_icon">2dp</dimen>            <!-- nav/spark strokes -->
+
+    <!-- type scale (sp) · §4 -->
+    <dimen name="text_display">32sp</dimen>
+    <dimen name="text_headline">20sp</dimen>
+    <dimen name="text_title">16sp</dimen>
+    <dimen name="text_body">14sp</dimen>
+    <dimen name="text_caption">12sp</dimen>
+    <dimen name="text_kicker">11sp</dimen>
+
+    <!-- elevation: stay near-flat · §5 -->
+    <dimen name="elev_card">0dp</dimen>
+    <dimen name="elev_fab">6dp</dimen>
+</resources>

@@ -1,0 +1,6 @@
+{
+  "name": "Momentum",
+  "description": "A habit tracker that correlates habits with daily mood and energy ratings",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
