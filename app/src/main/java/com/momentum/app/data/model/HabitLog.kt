@@ -20,5 +20,10 @@ data class HabitLog(
     val habitId: Long,
     val date: LocalDate,
     val completed: Boolean,
-    val completedAt: Long? = null
+    val completedAt: Long? = null,
+    val exactTimestamp: Long = completedAt ?: System.currentTimeMillis(),
+    val timeBin: TimeBin = TimeBin.fromTimestamp(completedAt ?: System.currentTimeMillis()),
+    val sourceType: SourceType = SourceType.MANUAL,
+    val isConfirmed: Boolean = true,
+    val detectedValue: Double? = null
 )

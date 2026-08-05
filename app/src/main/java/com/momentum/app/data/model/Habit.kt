@@ -15,6 +15,8 @@ data class Habit(
     val reminderTimes: String? = null, // Comma separated HH:mm strings, e.g. "08:00,14:00,20:30"
     val sortOrder: Int = 0,
     val archivedAt: Long? = null,
+    val sourceType: SourceType = SourceType.MANUAL,
+    val healthConnectTargetValue: Double? = null,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     fun getReminderTimesList(): List<Pair<Int, Int>> {

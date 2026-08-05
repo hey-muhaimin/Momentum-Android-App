@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.momentum.app.data.model.Habit
+import com.momentum.app.data.model.SourceType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +67,14 @@ fun HabitDetailSheet(
     var name by remember(habit) { mutableStateOf(habit.name) }
     var colorHex by remember(habit) { mutableStateOf(habit.colorHex) }
     var iconKey by remember(habit) { mutableStateOf(habit.iconKey) }
+    var sourceType by remember(habit) { mutableStateOf(habit.sourceType) }
+    var targetValue by remember(habit) {
+        mutableStateOf(habit.healthConnectTargetValue?.toString() ?: when (habit.sourceType) {
+            SourceType.HEALTH_CONNECT_SLEEP -> "7.0"
+            SourceType.HEALTH_CONNECT_STEPS -> "8000"
+            else -> ""
+        })
+    }
     var reminderTimesList by remember(habit) {
         val initial = habit.getReminderTimesList()
         mutableStateOf(if (initial.isNotEmpty()) initial else listOf(Pair(9, 0)))
@@ -181,6 +190,63 @@ fun HabitDetailSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // Tracking Source Selector (Health Connect vs Manual)
+            Text("Tracking Method", color = onSurfaceVariant, fontSize = 13.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                val sources = listOf(
+                    Pair(SourceType.MANUAL, "Manual Log"),
+                    Pair(SourceType.HEALTH_CONNECT_SLEEP, "Health Connect Sleep"),
+                    Pair(SourceType.HEALTH_CONNECT_STEPS, "Health Connect Steps")
+                )
+                sources.forEach { (type, label) ->
+                    val isSel = sourceType == type
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSel) primaryColor.copy(alpha = 0.15f) else surfaceVariant)
+                            .border(1.dp, if (isSel) primaryColor else outlineColor, RoundedCornerShape(12.dp))
+                            .clickable { sourceType = type }
+                            .padding(vertical = 10.dp, horizontal = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSel) primaryColor else onSurfaceVariant,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            if (sourceType != SourceType.MANUAL) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = targetValue,
+                    onValueChange = { targetValue = it },
+                    label = {
+                        Text(if (sourceType == SourceType.HEALTH_CONNECT_SLEEP) "Target Hours (e.g., 7.5)" else "Target Step Count (e.g., 8000)")
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryColor,
+                        unfocusedBorderColor = outlineColor,
+                        focusedLabelColor = primaryColor,
+                        unfocusedLabelColor = onSurfaceVariant,
+                        focusedTextColor = onSurface,
+                        unfocusedTextColor = onSurface
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             // Habit Specific Reminder Settings
             Column(
                 modifier = Modifier
@@ -237,11 +303,14 @@ fun HabitDetailSheet(
                 onClick = {
                     if (name.isNotBlank()) {
                         val timesToSave = if (hasReminder && reminderTimesList.isNotEmpty()) reminderTimesList else emptyList()
+                        val parsedTarget = targetValue.toDoubleOrNull()
                         onSave(
                             habit.copy(
                                 name = name.trim(),
                                 colorHex = colorHex,
                                 iconKey = iconKey,
+                                sourceType = sourceType,
+                                healthConnectTargetValue = parsedTarget,
                                 reminderTimes = Habit.timesListToString(timesToSave),
                                 reminderHour = timesToSave.firstOrNull()?.first,
                                 reminderMinute = timesToSave.firstOrNull()?.second

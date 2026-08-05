@@ -67,6 +67,7 @@ fun TodayScreen(
     onUpdateReminderSettings: (List<Pair<Int, Int>>, Boolean) -> Unit = { _, _ -> },
     onMoodSelected: (Int) -> Unit,
     onToggleHabit: (Long) -> Unit,
+    onConfirmPassiveLog: (Long) -> Unit = {},
     onEditHabit: (Habit) -> Unit,
     onAddHabit: () -> Unit,
     calculateStreak: (Habit) -> Int,
@@ -251,15 +252,18 @@ fun TodayScreen(
                 }
 
                 items(activeHabits, key = { it.id }) { habit ->
-                    val isDone = logMap[habit.id]?.completed == true
+                    val habitLog = logMap[habit.id]
+                    val isDone = habitLog?.completed == true
                     val streak = calculateStreak(habit)
 
                     HabitRow(
                         habit = habit,
                         isCompleted = isDone,
                         streakCount = streak,
+                        habitLog = habitLog,
                         onToggle = { onToggleHabit(habit.id) },
-                        onEdit = { onEditHabit(habit) }
+                        onEdit = { onEditHabit(habit) },
+                        onConfirmPassive = { onConfirmPassiveLog(habit.id) }
                     )
                 }
             }

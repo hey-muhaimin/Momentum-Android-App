@@ -84,7 +84,7 @@ fun MoodGauge(
             // Emoji rating selector row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 emojis.forEach { (rating, emoji) ->
@@ -101,7 +101,7 @@ fun MoodGauge(
 
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
+                            .size(52.dp)
                             .graphicsLayer {
                                 scaleX = scale
                                 scaleY = scale
@@ -128,7 +128,7 @@ fun MoodGauge(
                     ) {
                         Text(
                             text = emoji,
-                            fontSize = 22.sp
+                            fontSize = 26.sp
                         )
                     }
                 }

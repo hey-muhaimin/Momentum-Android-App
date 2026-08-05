@@ -24,4 +24,24 @@ class Converters {
     fun toCadence(cadence: Cadence?): String {
         return (cadence ?: Cadence.DAILY).name
     }
+
+    @TypeConverter
+    fun fromSourceType(value: String?): com.momentum.app.data.model.SourceType {
+        return value?.let { runCatching { com.momentum.app.data.model.SourceType.valueOf(it) }.getOrDefault(com.momentum.app.data.model.SourceType.MANUAL) } ?: com.momentum.app.data.model.SourceType.MANUAL
+    }
+
+    @TypeConverter
+    fun toSourceType(sourceType: com.momentum.app.data.model.SourceType?): String {
+        return (sourceType ?: com.momentum.app.data.model.SourceType.MANUAL).name
+    }
+
+    @TypeConverter
+    fun fromTimeBin(value: String?): com.momentum.app.data.model.TimeBin {
+        return value?.let { runCatching { com.momentum.app.data.model.TimeBin.valueOf(it) }.getOrDefault(com.momentum.app.data.model.TimeBin.MORNING) } ?: com.momentum.app.data.model.TimeBin.MORNING
+    }
+
+    @TypeConverter
+    fun toTimeBin(timeBin: com.momentum.app.data.model.TimeBin?): String {
+        return (timeBin ?: com.momentum.app.data.model.TimeBin.MORNING).name
+    }
 }

@@ -54,7 +54,9 @@ import androidx.compose.ui.unit.sp
 import com.momentum.app.data.model.Habit
 import com.momentum.app.data.model.HabitImpact
 import com.momentum.app.data.model.HabitLog
+import com.momentum.app.data.model.LagWindow
 import com.momentum.app.data.model.MoodLog
+import com.momentum.app.data.model.TimeLaggedImpact
 import com.momentum.app.ui.components.IconHelper
 import com.momentum.app.ui.theme.CellBg
 import com.momentum.app.ui.theme.Coral
@@ -69,6 +71,9 @@ import kotlin.math.abs
 @Composable
 fun InsightsScreen(
     habitImpacts: List<HabitImpact>,
+    timeLaggedImpacts: List<TimeLaggedImpact> = emptyList(),
+    selectedLagWindow: LagWindow = LagWindow.SAME_DAY_T0,
+    onSelectLagWindow: (LagWindow) -> Unit = {},
     moodLogs: List<MoodLog>,
     activeHabits: List<Habit> = emptyList(),
     recentLogs: List<HabitLog> = emptyList(),
@@ -77,7 +82,7 @@ fun InsightsScreen(
 ) {
     val daysWithBothCount = habitImpacts.maxOfOrNull { it.daysWithBoth } ?: 0
     val moodDaysCount = moodLogs.size
-    val hasEnoughData = daysWithBothCount >= 5
+    val hasEnoughData = daysWithBothCount >= 5 || timeLaggedImpacts.isNotEmpty()
     val isMoodOnlyUser = moodDaysCount >= 5 && daysWithBothCount == 0
 
     LazyColumn(
@@ -90,17 +95,55 @@ fun InsightsScreen(
         item {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "WHAT MOVES THE NEEDLE",
+                text = "CAUSAL ANALYSIS WINDOW",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,
                 letterSpacing = 1.2.sp,
                 fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Lag Window Selection Chips
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                LagWindow.values().forEach { window ->
+                    val isSelected = selectedLagWindow == window
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                            .clickable { onSelectLagWindow(window) }
+                            .padding(vertical = 8.dp, horizontal = 2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = when (window) {
+                                LagWindow.T0_SAME_DAY -> "T-0 Same"
+                                LagWindow.T1_PREVIOUS_DAY -> "T-1 Next"
+                                LagWindow.T2_TWO_DAYS_PRIOR -> "T-2 Day"
+                                LagWindow.TIME_OF_DAY -> "By Time"
+                            },
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
         }
 
-        // Signal / Gathering Signal State
-        if (hasEnoughData) {
+        // Causal / Signal State
+        if (timeLaggedImpacts.isNotEmpty()) {
+            items(timeLaggedImpacts, key = { "${it.habit.id}_${it.lagWindow}" }) { impact ->
+                TimeLaggedImpactCard(impact = impact)
+            }
+        } else if (hasEnoughData) {
             val maxAbsScore = habitImpacts.maxOfOrNull { abs(it.correlationScore) }?.coerceAtLeast(0.5) ?: 1.0
 
             items(habitImpacts, key = { it.habit.id }) { impact ->
@@ -773,6 +816,79 @@ fun ImpactItemCard(
                 },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 11.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun TimeLaggedImpactCard(
+    impact: TimeLaggedImpact
+) {
+    val isPositive = impact.correlationScore >= 0
+    val parseColor = if (isPositive) GreenPrimary else Coral
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
+            .padding(14.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(parseColor.copy(alpha = 0.18f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isPositive) "⚡" else "📉",
+                            fontSize = 14.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = impact.habit.name,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${impact.sampleCountWith} done / ${impact.sampleCountWithout} skipped",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                Text(
+                    text = "${if (isPositive) "+" else ""}${String.format("%.1f", impact.correlationScore)} energy",
+                    color = parseColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = impact.naturalLanguageInsight,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 16.sp
             )
         }
     }

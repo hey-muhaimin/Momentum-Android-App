@@ -38,7 +38,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Sync
 import com.momentum.app.data.model.Habit
+import com.momentum.app.data.model.HabitLog
+import com.momentum.app.data.model.SourceType
 import com.momentum.app.ui.theme.Momentum
 
 @Composable
@@ -46,8 +49,10 @@ fun HabitRow(
     habit: Habit,
     isCompleted: Boolean,
     streakCount: Int,
+    habitLog: HabitLog? = null,
     onToggle: () -> Unit,
     onEdit: () -> Unit,
+    onConfirmPassive: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -155,7 +160,33 @@ fun HabitRow(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 1.dp)
             ) {
-                if (streakCount > 0) {
+                if (habit.sourceType != SourceType.MANUAL) {
+                    val isUnconfirmed = habitLog != null && !habitLog.isConfirmed
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = "Health Connect",
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = if (isUnconfirmed) {
+                            val detValStr = when (habit.sourceType) {
+                                SourceType.HEALTH_CONNECT_SLEEP -> "${habitLog?.detectedValue ?: 7.5} hrs sleep"
+                                SourceType.HEALTH_CONNECT_STEPS -> "${(habitLog?.detectedValue ?: 8000.0).toInt()} steps"
+                                else -> "Synced"
+                            }
+                            "$detValStr • Tap to confirm"
+                        } else if (streakCount > 0) {
+                            "$streakCount day streak"
+                        } else {
+                            "Health Connect synced"
+                        },
+                        color = if (isUnconfirmed) MaterialTheme.colorScheme.secondary else primaryColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                } else if (streakCount > 0) {
                     Icon(
                         imageVector = Icons.Default.LocalFireDepartment,
                         contentDescription = "Flame",

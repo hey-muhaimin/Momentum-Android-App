@@ -33,6 +33,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     private val repository = MomentumRepository(db.habitDao(), db.habitLogDao(), db.moodLogDao())
     private val userPrefs = UserPreferencesRepository(application)
+    val healthConnectManager = com.momentum.app.data.health.HealthConnectManager(application)
+
+    private val _selectedLagWindow = MutableStateFlow(com.momentum.app.data.model.LagWindow.T1_PREVIOUS_DAY)
+    val selectedLagWindow: StateFlow<com.momentum.app.data.model.LagWindow> = _selectedLagWindow.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val timeLaggedImpacts: StateFlow<List<com.momentum.app.data.model.TimeLaggedImpact>> = _selectedLagWindow.flatMapLatest { lag ->
+        repository.observeTimeLaggedImpacts(90, lag)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val activeHabits: StateFlow<List<Habit>> = repository.activeHabits
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -134,6 +143,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun logMood(rating: Int) {
         viewModelScope.launch {
             repository.logMood(LocalDate.now(), rating)
+        }
+    }
+
+    fun selectLagWindow(lag: com.momentum.app.data.model.LagWindow) {
+        _selectedLagWindow.value = lag
+    }
+
+    fun confirmPassiveHabitLog(habitId: Long) {
+        viewModelScope.launch {
+            repository.confirmPassiveLog(habitId, LocalDate.now())
+            MomentumWidgetProvider.updateAllWidgets(getApplication())
         }
     }
 

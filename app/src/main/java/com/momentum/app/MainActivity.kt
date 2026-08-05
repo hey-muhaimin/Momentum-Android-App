@@ -82,6 +82,8 @@ class MainActivity : ComponentActivity() {
                 var activeTab by remember { mutableStateOf(initialTab) }
 
                 val hasOnboarded by viewModel.hasOnboarded.collectAsStateWithLifecycle()
+                val timeLaggedImpacts by viewModel.timeLaggedImpacts.collectAsStateWithLifecycle()
+                val selectedLagWindow by viewModel.selectedLagWindow.collectAsStateWithLifecycle()
                 val activeHabits by viewModel.activeHabits.collectAsStateWithLifecycle()
                 val todayMood by viewModel.todayMood.collectAsStateWithLifecycle()
                 val todayLogs by viewModel.todayLogs.collectAsStateWithLifecycle()
@@ -196,6 +198,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onMoodSelected = { rating -> viewModel.logMood(rating) },
                                     onToggleHabit = { habitId -> viewModel.toggleTodayHabit(habitId) },
+                                    onConfirmPassiveLog = { habitId -> viewModel.confirmPassiveHabitLog(habitId) },
                                     onEditHabit = { habit -> viewModel.openHabitDetail(habit) },
                                     onAddHabit = { viewModel.openNewHabitSheet() },
                                     calculateStreak = { habit ->
@@ -206,6 +209,9 @@ class MainActivity : ComponentActivity() {
 
                                 "insights" -> InsightsScreen(
                                     habitImpacts = habitImpacts,
+                                    timeLaggedImpacts = timeLaggedImpacts,
+                                    selectedLagWindow = selectedLagWindow,
+                                    onSelectLagWindow = { window -> viewModel.selectLagWindow(window) },
                                     moodLogs = moodLogs,
                                     activeHabits = activeHabits,
                                     recentLogs = recentLogs,

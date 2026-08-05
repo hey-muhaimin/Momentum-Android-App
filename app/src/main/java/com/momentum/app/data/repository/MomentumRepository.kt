@@ -81,12 +81,16 @@ class MomentumRepository(
     suspend fun toggleHabitLog(habitId: Long, date: LocalDate) {
         val logs = habitLogDao.getLogsForDateSync(date)
         val existing = logs.find { it.habitId == habitId }
+        val now = System.currentTimeMillis()
         if (existing != null) {
             val newCompleted = !existing.completed
             habitLogDao.upsertHabitLog(
                 existing.copy(
                     completed = newCompleted,
-                    completedAt = if (newCompleted) System.currentTimeMillis() else null
+                    completedAt = if (newCompleted) now else null,
+                    exactTimestamp = now,
+                    timeBin = com.momentum.app.data.model.TimeBin.fromTimestamp(now),
+                    isConfirmed = true
                 )
             )
         } else {
@@ -95,8 +99,47 @@ class MomentumRepository(
                     habitId = habitId,
                     date = date,
                     completed = true,
-                    completedAt = System.currentTimeMillis()
+                    completedAt = now,
+                    exactTimestamp = now,
+                    timeBin = com.momentum.app.data.model.TimeBin.fromTimestamp(now),
+                    isConfirmed = true
                 )
+            )
+        }
+    }
+
+    suspend fun confirmPassiveLog(habitId: Long, date: LocalDate) {
+        val logs = habitLogDao.getLogsForDateSync(date)
+        val existing = logs.find { it.habitId == habitId }
+        if (existing != null) {
+            habitLogDao.upsertHabitLog(
+                existing.copy(
+                    isConfirmed = true
+                )
+            )
+        }
+    }
+
+    /**
+     * Observes time-lagged impacts (T-0, T-1, T-2, Time of Day) using TimeLaggedAnalysisEngine
+     */
+    fun observeTimeLaggedImpacts(
+        days: Int = 90,
+        selectedLag: com.momentum.app.data.model.LagWindow = com.momentum.app.data.model.LagWindow.T1_PREVIOUS_DAY
+    ): Flow<List<com.momentum.app.data.model.TimeLaggedImpact>> {
+        val today = LocalDate.now()
+        val from = today.minusDays((days - 1).toLong())
+
+        return combine(
+            habitDao.observeActiveHabits(),
+            moodLogDao.observeMoodLogsBetween(from, today),
+            habitLogDao.observeAllLogsBetween(from, today)
+        ) { habits, moodLogs, habitLogs ->
+            com.momentum.app.data.analysis.TimeLaggedAnalysisEngine.analyze(
+                habits = habits,
+                moodLogs = moodLogs,
+                habitLogs = habitLogs,
+                selectedLag = selectedLag
             )
         }
     }
