@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -72,6 +73,56 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val hasOnboarded: StateFlow<Boolean> = userPrefs.hasOnboarded
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true) // default true while loading
 
+    val contextInsights: StateFlow<List<com.momentum.app.data.analysis.ContextInsight>> = MutableStateFlow(
+
+        com.momentum.app.data.analysis.ContextEngine.generateContextInsights()
+    ).asStateFlow()
+
+    private val _isDisruptionDismissed = MutableStateFlow(false)
+    val isDisruptionDismissed: StateFlow<Boolean> = _isDisruptionDismissed.asStateFlow()
+
+    val disruptionState: StateFlow<com.momentum.app.data.analysis.DisruptionState> = combine(recentLogs, _isDisruptionDismissed) { logs, dismissed ->
+        if (dismissed) {
+            com.momentum.app.data.analysis.DisruptionState(false, null, false)
+        } else {
+            com.momentum.app.data.analysis.DisruptionEngine.evaluateDisruption(logs)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.momentum.app.data.analysis.DisruptionState(false, null, false))
+
+    fun dismissDisruptionBanner() {
+        _isDisruptionDismissed.value = true
+    }
+
+
+    private val _experiments = MutableStateFlow(
+        listOf(
+            com.momentum.app.data.model.Experiment(
+                id = "exp_1",
+                title = "Morning Walk vs Evening Walk",
+                hypothesis = "Moving before 9 AM produces higher afternoon mood lift than evening exercise.",
+                variantA = "Morning Walk (8 AM)",
+                variantB = "Evening Walk (6 PM)",
+                durationDays = 14,
+                startDate = LocalDate.now().minusDays(5),
+                currentDay = 5,
+                activeVariant = "Variant A",
+                variantAMoodLiftPct = 28,
+                variantBMoodLiftPct = 6
+            )
+        )
+    )
+    val experiments: StateFlow<List<com.momentum.app.data.model.Experiment>> = _experiments.asStateFlow()
+
+    val wearOSStatus: StateFlow<com.momentum.app.data.wear.WearOSStatus> = MutableStateFlow(
+        com.momentum.app.data.wear.WearOSManager.getWearStatus(application)
+    ).asStateFlow()
+
+    fun switchExperimentVariant(experimentId: String, newVariant: String) {
+        _experiments.value = _experiments.value.map { exp ->
+            if (exp.id == experimentId) exp.copy(activeVariant = newVariant) else exp
+        }
+    }
+
     val reminderTime: StateFlow<Pair<Int, Int>> = userPrefs.reminderTime
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Pair(21, 0))
 
@@ -97,6 +148,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
+        com.momentum.app.worker.HealthConnectSyncWorker.schedule(getApplication())
+        ReminderScheduler.scheduleEveningMetricsReminder(getApplication())
         viewModelScope.launch {
             repository.seedInitialDataIfEmpty()
         }
@@ -108,6 +161,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             activeHabits.collect { habits ->
                 ReminderScheduler.scheduleHabitReminders(getApplication(), habits)
+                
+                // Evaluate passive habits on load
+                val today = LocalDate.now()
+                val passiveHabits = habits.filter { it.sourceType != com.momentum.app.data.model.SourceType.MANUAL }
+                if (passiveHabits.isNotEmpty()) {
+                    val logs = repository.observeTodayHabitLogs().first()
+                    passiveHabits.forEach { habit ->
+                        val existing = logs.find { it.habitId == habit.id }
+                        val evaluated = healthConnectManager.evaluatePassiveHabit(habit, today, existing)
+                        if (evaluated != null && evaluated != existing) {
+                            db.habitLogDao().upsertHabitLog(evaluated)
+                        }
+                    }
+                }
             }
         }
     }
@@ -140,9 +207,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _selectedChainHabitId.value = habitId
     }
 
+    private val _snackbarMessage = MutableStateFlow<String?>(null)
+    val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
+
+    fun clearSnackbarMessage() {
+        _snackbarMessage.value = null
+    }
+
+    fun showSnackbar(message: String) {
+        _snackbarMessage.value = message
+    }
+
     fun logMood(rating: Int) {
         viewModelScope.launch {
             repository.logMood(LocalDate.now(), rating)
+        }
+    }
+
+    fun submitDailyMetrics(mood: Float?, energy: Float?) {
+        if (mood == null || energy == null || mood < 1f || energy < 1f || mood > 10f || energy > 10f) {
+            _snackbarMessage.value = "Please select both mood and energy levels (1-10) before submitting."
+            return
+        }
+
+        viewModelScope.launch {
+            val moodInt = mood.toInt().coerceIn(1, 10)
+            val energyInt = energy.toInt().coerceIn(1, 10)
+            repository.logDailyMetrics(LocalDate.now(), moodInt, energyInt)
+            _snackbarMessage.value = "Daily metrics logged! Mood: $moodInt/10, Energy: $energyInt/10."
         }
     }
 

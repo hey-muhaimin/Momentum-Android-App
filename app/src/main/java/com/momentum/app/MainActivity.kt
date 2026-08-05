@@ -84,6 +84,8 @@ class MainActivity : ComponentActivity() {
                 val hasOnboarded by viewModel.hasOnboarded.collectAsStateWithLifecycle()
                 val timeLaggedImpacts by viewModel.timeLaggedImpacts.collectAsStateWithLifecycle()
                 val selectedLagWindow by viewModel.selectedLagWindow.collectAsStateWithLifecycle()
+                val contextInsights by viewModel.contextInsights.collectAsStateWithLifecycle()
+                val disruptionState by viewModel.disruptionState.collectAsStateWithLifecycle()
                 val activeHabits by viewModel.activeHabits.collectAsStateWithLifecycle()
                 val todayMood by viewModel.todayMood.collectAsStateWithLifecycle()
                 val todayLogs by viewModel.todayLogs.collectAsStateWithLifecycle()
@@ -92,10 +94,22 @@ class MainActivity : ComponentActivity() {
                 val habitStreaks by viewModel.habitStreaks.collectAsStateWithLifecycle()
                 val recentLogs by viewModel.recentLogs.collectAsStateWithLifecycle()
                 val editingHabit by viewModel.editingHabit.collectAsStateWithLifecycle()
+                val experiments by viewModel.experiments.collectAsStateWithLifecycle()
+                val wearOSStatus by viewModel.wearOSStatus.collectAsStateWithLifecycle()
                 val selectedChainHabitId by viewModel.selectedChainHabitId.collectAsStateWithLifecycle()
                 val selectedChainLogs by viewModel.selectedChainLogs.collectAsStateWithLifecycle()
                 val reminderTimesList by viewModel.reminderTimesList.collectAsStateWithLifecycle()
                 val isReminderEnabled by viewModel.isReminderEnabled.collectAsStateWithLifecycle()
+                val snackbarMessage by viewModel.snackbarMessage.collectAsStateWithLifecycle()
+
+                val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+
+                LaunchedEffect(snackbarMessage) {
+                    snackbarMessage?.let { msg ->
+                        snackbarHostState.showSnackbar(msg)
+                        viewModel.clearSnackbarMessage()
+                    }
+                }
 
                 if (!hasOnboarded) {
                     OnboardingScreen(
@@ -114,6 +128,7 @@ class MainActivity : ComponentActivity() {
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         containerColor = MaterialTheme.colorScheme.background,
+                        snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackbarHostState) },
                         bottomBar = {
                             NavigationBar(
                                 containerColor = MaterialTheme.colorScheme.surface,
@@ -203,7 +218,9 @@ class MainActivity : ComponentActivity() {
                                     onAddHabit = { viewModel.openNewHabitSheet() },
                                     calculateStreak = { habit ->
                                         habitStreaks[habit.id]?.currentStreak ?: 0
-                                    }
+                                    },
+                                    disruptionState = disruptionState,
+                                    onDismissDisruption = { viewModel.dismissDisruptionBanner() }
                                 )
 
 
@@ -212,6 +229,10 @@ class MainActivity : ComponentActivity() {
                                     timeLaggedImpacts = timeLaggedImpacts,
                                     selectedLagWindow = selectedLagWindow,
                                     onSelectLagWindow = { window -> viewModel.selectLagWindow(window) },
+                                    contextInsights = contextInsights,
+                                    experiments = experiments,
+                                    wearOSStatus = wearOSStatus,
+                                    onSwitchVariant = { id, variant -> viewModel.switchExperimentVariant(id, variant) },
                                     moodLogs = moodLogs,
                                     activeHabits = activeHabits,
                                     recentLogs = recentLogs,

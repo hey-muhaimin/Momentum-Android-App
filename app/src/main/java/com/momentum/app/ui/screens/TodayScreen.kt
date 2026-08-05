@@ -66,11 +66,14 @@ fun TodayScreen(
     isReminderEnabled: Boolean = true,
     onUpdateReminderSettings: (List<Pair<Int, Int>>, Boolean) -> Unit = { _, _ -> },
     onMoodSelected: (Int) -> Unit,
+    onSubmitDailyMetrics: (Float?, Float?) -> Unit = { _, _ -> },
     onToggleHabit: (Long) -> Unit,
     onConfirmPassiveLog: (Long) -> Unit = {},
     onEditHabit: (Habit) -> Unit,
     onAddHabit: () -> Unit,
     calculateStreak: (Habit) -> Int,
+    disruptionState: com.momentum.app.data.analysis.DisruptionState = com.momentum.app.data.analysis.DisruptionState(false, null, false),
+    onDismissDisruption: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val logMap = todayLogs.associateBy { it.habitId }
@@ -140,7 +143,49 @@ fun TodayScreen(
                 }
             }
 
+            if (disruptionState.isDisruptionDetected) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+                            .border(1.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(16.dp))
+                            .padding(14.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "🛡️ Adaptive Grace Active",
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Dismiss",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable { onDismissDisruption() }
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = disruptionState.reasonMessage ?: "Routine shift detected. Streaks are paused so you can focus on what matters.",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             // Section Label (.p-kicker)
+
             item {
                 Text(
                     text = "HOW'S TODAY, REALLY",
@@ -152,11 +197,11 @@ fun TodayScreen(
                 )
             }
 
-            // Mood Gauge Card
+            // Daily Metrics Form (Mood & Energy Sliders)
             item {
-                MoodGauge(
-                    selectedMood = todayMood?.score,
-                    onMoodSelected = onMoodSelected
+                com.momentum.app.ui.components.DailyMetricsForm(
+                    todayMoodLog = todayMood,
+                    onSubmitMetrics = onSubmitDailyMetrics
                 )
             }
 

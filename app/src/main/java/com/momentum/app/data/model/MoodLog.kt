@@ -8,5 +8,7 @@ import java.time.LocalDate
 data class MoodLog(
     @PrimaryKey val date: LocalDate,
     val score: Int,
+    val energyScore: Int = 5,
     val loggedAt: Long = System.currentTimeMillis()
 )
+

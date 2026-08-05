@@ -15,7 +15,7 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.momentum.habit"
-    minSdk = 24
+    minSdk = 26
     targetSdk = 36
     versionCode = 9
     versionName = "9.0"
@@ -86,6 +86,7 @@ dependencies {
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
+  implementation(libs.androidx.health.connect.client)
   implementation(libs.androidx.datastore.preferences)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)

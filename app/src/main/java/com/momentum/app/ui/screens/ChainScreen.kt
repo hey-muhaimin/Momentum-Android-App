@@ -55,6 +55,7 @@ import java.time.format.DateTimeFormatter
 enum class CalendarCellState {
     DONE,
     GRACE,
+    PAUSED,
     MISS,
     FUTURE
 }
@@ -398,6 +399,7 @@ fun MonthlyCalendarCard(
                                     when (item.state) {
                                         CalendarCellState.DONE -> habitColor
                                         CalendarCellState.GRACE -> MaterialTheme.colorScheme.surfaceVariant
+                                        CalendarCellState.PAUSED -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                                         CalendarCellState.MISS -> MaterialTheme.colorScheme.surfaceVariant
                                         CalendarCellState.FUTURE -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                     }
@@ -406,11 +408,13 @@ fun MonthlyCalendarCard(
                                     width = when {
                                         isToday -> 2.dp
                                         item.state == CalendarCellState.GRACE -> 1.5.dp
+                                        item.state == CalendarCellState.PAUSED -> 1.dp
                                         else -> 0.dp
                                     },
                                     color = when {
                                         isToday -> primaryColor
                                         item.state == CalendarCellState.GRACE -> habitColor
+                                        item.state == CalendarCellState.PAUSED -> MaterialTheme.colorScheme.secondary
                                         else -> Color.Transparent
                                     },
                                     shape = RoundedCornerShape(10.dp)
@@ -446,6 +450,12 @@ fun MonthlyCalendarCard(
                                             .clip(CircleShape)
                                             .background(habitColor)
                                     )
+                                } else if (item.state == CalendarCellState.PAUSED) {
+                                    Text(
+                                        text = "⏸",
+                                        fontSize = 8.sp,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
                                 }
                             }
                         }
@@ -479,6 +489,11 @@ fun MonthlyCalendarCard(
                                 .border(1.dp, habitColor, CircleShape)
                         )
                         Text("Grace", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("⏸", fontSize = 9.sp, color = MaterialTheme.colorScheme.secondary)
+                        Text("Paused", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {

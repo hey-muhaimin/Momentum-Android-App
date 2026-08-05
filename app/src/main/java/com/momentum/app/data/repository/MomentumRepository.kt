@@ -144,11 +144,23 @@ class MomentumRepository(
         }
     }
 
-    suspend fun logMood(date: LocalDate, score: Int) {
+    suspend fun logMood(date: LocalDate, score: Int, energyScore: Int = 5) {
         moodLogDao.upsertMoodLog(
             MoodLog(
                 date = date,
-                score = score.coerceIn(1, 5),
+                score = score.coerceIn(1, 10),
+                energyScore = energyScore.coerceIn(1, 10),
+                loggedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun logDailyMetrics(date: LocalDate, mood: Int, energy: Int) {
+        moodLogDao.upsertMoodLog(
+            MoodLog(
+                date = date,
+                score = mood.coerceIn(1, 10),
+                energyScore = energy.coerceIn(1, 10),
                 loggedAt = System.currentTimeMillis()
             )
         )

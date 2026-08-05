@@ -76,6 +76,44 @@ object ReminderScheduler {
     }
 
     /**
+     * Schedules periodic evening WorkManager task to remind logging mood and energy.
+     */
+    fun scheduleEveningMetricsReminder(
+        context: Context,
+        hour: Int = 20,
+        minute: Int = 0
+    ) {
+        val workManager = WorkManager.getInstance(context.applicationContext)
+        val constraints = Constraints.Builder()
+            .setRequiresBatteryNotLow(false)
+            .build()
+
+        val now = LocalDateTime.now()
+        val targetTime = LocalTime.of(hour, minute)
+        var targetDateTime = now.with(targetTime).withSecond(0).withNano(0)
+
+        if (now.isAfter(targetDateTime)) {
+            targetDateTime = targetDateTime.plusDays(1)
+        }
+
+        val initialDelayMillis = Duration.between(now, targetDateTime).toMillis()
+
+        val request = PeriodicWorkRequestBuilder<EveningMetricsReminderWorker>(
+            24, TimeUnit.HOURS
+        )
+            .setInitialDelay(initialDelayMillis, TimeUnit.MILLISECONDS)
+            .setConstraints(constraints)
+            .addTag("evening_metrics_reminder")
+            .build()
+
+        workManager.enqueueUniquePeriodicWork(
+            "evening_metrics_reminder_task",
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+    }
+
+    /**
      * Schedules reminders for specific individual habits based on their custom reminder times.
      */
     fun scheduleHabitReminders(

@@ -11,7 +11,7 @@ import com.momentum.app.data.model.MoodLog
 
 @Database(
     entities = [Habit::class, HabitLog::class, MoodLog::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

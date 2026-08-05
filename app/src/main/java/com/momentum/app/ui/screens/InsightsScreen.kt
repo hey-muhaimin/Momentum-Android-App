@@ -72,14 +72,19 @@ import kotlin.math.abs
 fun InsightsScreen(
     habitImpacts: List<HabitImpact>,
     timeLaggedImpacts: List<TimeLaggedImpact> = emptyList(),
-    selectedLagWindow: LagWindow = LagWindow.SAME_DAY_T0,
+    selectedLagWindow: LagWindow = LagWindow.T1_PREVIOUS_DAY,
     onSelectLagWindow: (LagWindow) -> Unit = {},
+    contextInsights: List<com.momentum.app.data.analysis.ContextInsight> = emptyList(),
+    experiments: List<com.momentum.app.data.model.Experiment> = emptyList(),
+    wearOSStatus: com.momentum.app.data.wear.WearOSStatus = com.momentum.app.data.wear.WearOSStatus(),
+    onSwitchVariant: (String, String) -> Unit = { _, _ -> },
     moodLogs: List<MoodLog>,
     activeHabits: List<Habit> = emptyList(),
     recentLogs: List<HabitLog> = emptyList(),
     onEditHabit: (Habit) -> Unit,
     modifier: Modifier = Modifier
 ) {
+
     val daysWithBothCount = habitImpacts.maxOfOrNull { it.daysWithBoth } ?: 0
     val moodDaysCount = moodLogs.size
     val hasEnoughData = daysWithBothCount >= 5 || timeLaggedImpacts.isNotEmpty()
@@ -163,10 +168,203 @@ fun InsightsScreen(
             }
         }
 
+        if (contextInsights.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "CONTEXT-AWARE INSIGHTS (OFFLINE)",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.2.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            items(contextInsights) { cInsight ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "${cInsight.icon}  ${cInsight.title}",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = cInsight.category,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = cInsight.description,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // 30-Day Correlation Trends View
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            com.momentum.app.ui.components.TrendsView(
+                moodLogs = moodLogs,
+                recentLogs = recentLogs
+            )
+        }
+
+        if (experiments.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "EXPERIMENT MODE (A/B LIFE ROUTINES)",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.2.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            items(experiments) { exp ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "🧪 ${exp.title}",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Day ${exp.currentDay}/${exp.durationDays}",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = exp.hypothesis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            val isVarA = exp.activeVariant == "Variant A"
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isVarA) GreenLight else CellBg)
+                                    .border(1.dp, if (isVarA) GreenPrimary else Color.Transparent, RoundedCornerShape(12.dp))
+                                    .clickable { onSwitchVariant(exp.id, "Variant A") }
+                                    .padding(10.dp)
+                            ) {
+                                Column {
+                                    Text("OPTION A", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(exp.variantA, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("+${exp.variantAMoodLiftPct}% Mood Lift", fontSize = 11.sp, color = GreenPrimary, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            val isVarB = exp.activeVariant == "Variant B"
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isVarB) GreenLight else CellBg)
+                                    .border(1.dp, if (isVarB) GreenPrimary else Color.Transparent, RoundedCornerShape(12.dp))
+                                    .clickable { onSwitchVariant(exp.id, "Variant B") }
+                                    .padding(10.dp)
+                            ) {
+                                Column {
+                                    Text("OPTION B", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(exp.variantB, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("+${exp.variantBMoodLiftPct}% Mood Lift", fontSize = 11.sp, color = GreenSecondary, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp))
+                    .padding(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("⌚", fontSize = 16.sp)
+                        Column {
+                            Text("Wear OS Smartwatch Companion", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Wrist quick-logging ready • ${wearOSStatus.lastWristSyncTime}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(GreenPrimary.copy(alpha = 0.2f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text("ACTIVE", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = GreenPrimary)
+                    }
+                }
+            }
+        }
+
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "MOOD & ENERGY TRENDS",
+
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,

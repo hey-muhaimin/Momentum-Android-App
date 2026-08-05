@@ -25,6 +25,7 @@ class BootReceiver : BroadcastReceiver() {
                     val database = com.momentum.app.data.local.AppDatabase.getDatabase(context)
                     val activeHabits = database.habitDao().getActiveHabitsSync()
                     ReminderScheduler.scheduleHabitReminders(context, activeHabits)
+                    HealthConnectSyncWorker.schedule(context)
                 } finally {
                     pendingResult.finish()
                 }
