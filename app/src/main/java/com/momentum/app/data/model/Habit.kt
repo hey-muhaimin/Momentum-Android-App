@@ -7,8 +7,8 @@ import androidx.room.PrimaryKey
 data class Habit(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val colorHex: String,
-    val iconKey: String,
+    val colorHex: String = "#2F855A",
+    val iconKey: String = "check",
     val cadence: Cadence = Cadence.DAILY,
     val reminderHour: Int? = null,
     val reminderMinute: Int? = null,
