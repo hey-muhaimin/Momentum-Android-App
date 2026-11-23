@@ -5,7 +5,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,11 +26,17 @@ fun HabitsScreen(
     val habits by viewModel.activeHabits.collectAsStateWithLifecycle()
     val todayLogs by viewModel.todayLogs.collectAsStateWithLifecycle()
 
+    var selectedFilter by remember { mutableStateOf("All") }
     var showAddHabitDialog by remember { mutableStateOf(false) }
     var newHabitTitle by remember { mutableStateOf("") }
 
     val completedHabitIds = todayLogs.filter { it.completed }.map { it.habitId }.toSet()
-    val completedCount = habits.count { completedHabitIds.contains(it.id) }
+
+    val filteredHabits = when (selectedFilter) {
+        "Daily" -> habits.filter { it.cadence == com.momentum.app.data.model.Cadence.DAILY }
+        "Health" -> habits.filter { it.sourceType != com.momentum.app.data.model.SourceType.MANUAL }
+        else -> habits
+    }
 
     LazyColumn(
         modifier = modifier
@@ -37,42 +45,46 @@ fun HabitsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
+        // Header
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "Daily Micro-Habits",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "$completedCount of ${habits.size} completed today",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Button(
+                Text(
+                    text = "Habits",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                IconButton(
                     onClick = { showAddHabitDialog = true },
-                    modifier = Modifier.height(48.dp)
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text("Add Habit")
+                    Icon(Icons.Default.Add, contentDescription = "Add Habit", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
         }
 
-        if (habits.isEmpty()) {
+        // Filter Chips
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("All", "Daily", "Health", "Other").forEach { filter ->
+                    FilterChip(
+                        selected = selectedFilter == filter,
+                        onClick = { selectedFilter = filter },
+                        label = { Text(filter) }
+                    )
+                }
+            }
+        }
+
+        if (filteredHabits.isEmpty()) {
             item {
-                OutlinedCard(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -80,7 +92,7 @@ fun HabitsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No micro-habits set. Tap 'Add Habit' to start your daily reset rituals.",
+                            text = "No habits found in this view.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -88,35 +100,54 @@ fun HabitsScreen(
                 }
             }
         } else {
-            items(habits, key = { it.id }) { habit ->
+            items(filteredHabits, key = { it.id }) { habit ->
                 val isDone = completedHabitIds.contains(habit.id)
-                OutlinedCard(
+                ElevatedCard(
                     onClick = { viewModel.toggleHabitToday(habit.id) },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = if (isDone) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceVariant
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = if (isDone) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                            .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Checkbox(
-                            checked = isDone,
-                            onCheckedChange = { viewModel.toggleHabitToday(habit.id) }
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            text = habit.name,
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleMedium,
-                            textDecoration = if (isDone) TextDecoration.LineThrough else TextDecoration.None,
-                            color = if (isDone) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                        )
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = habit.name.take(1).uppercase(),
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.width(16.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = habit.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                textDecoration = if (isDone) TextDecoration.LineThrough else TextDecoration.None,
+                                color = if (isDone) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "7 days streak",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
                         IconButton(onClick = { viewModel.deleteHabit(habit) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete habit", tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
                         }
                     }
                 }
@@ -127,12 +158,12 @@ fun HabitsScreen(
     if (showAddHabitDialog) {
         AlertDialog(
             onDismissRequest = { showAddHabitDialog = false },
-            title = { Text("New Micro-Habit") },
+            title = { Text("New Habit") },
             text = {
                 OutlinedTextField(
                     value = newHabitTitle,
                     onValueChange = { newHabitTitle = it },
-                    placeholder = { Text("e.g., 15-min reading") },
+                    placeholder = { Text("e.g. Daily Meditation") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )

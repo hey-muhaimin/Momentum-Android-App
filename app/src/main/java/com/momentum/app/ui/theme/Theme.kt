@@ -17,78 +17,73 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /* ════════════════════════════════════════════════════════════
-   Momentum Design System — DESIGN.md v1.0
-   Single source of truth for color, type, shape. Light + dark
-   ship together; no feature lands light-only.
+   Momentum Design System — Organic Intelligence (DESIGN.md v2.0)
+   Dark olive surfaces, luminous lime accents, editorial type.
    ════════════════════════════════════════════════════════════ */
 
-/* ── Color roles · DESIGN.md §3 ─────────────────────────────── */
+private val DarkColors = darkColorScheme(
+    primary            = Color(0xFFD7F75B),   // Luminous lime
+    onPrimary          = Color(0xFF18200A),
+    primaryContainer   = Color(0xFF303B16),
+    onPrimaryContainer = Color(0xFFEAF4EE),
+    secondary          = Color(0xFF91B8D0),
+    onSecondary        = Color(0xFF0B0E08),
+    secondaryContainer = Color(0xFF1D2833),
+    onSecondaryContainer = Color(0xFFEAF4EE),
+    tertiary           = Color(0xFFA9D95B),
+    onTertiary         = Color(0xFF0B0E08),
+    tertiaryContainer  = Color(0xFF263318),
+    onTertiaryContainer = Color(0xFFEAF4EE),
+    error              = Color(0xFFE28D80),
+    onError            = Color(0xFF40211D),
+    errorContainer     = Color(0xFF3A221F),
+    onErrorContainer   = Color(0xFFE28D80),
+    background         = Color(0xFF0B0E08),
+    onBackground       = Color(0xFFF2F3E9),
+    surface            = Color(0xFF11160D),
+    onSurface          = Color(0xFFF2F3E9),
+    surfaceVariant     = Color(0xFF191F12),
+    onSurfaceVariant   = Color(0xFFB4B9A4),
+    surfaceTint        = Color(0xFFD7F75B),
+    outline            = Color(0xFF343C27),
+    outlineVariant     = Color(0xFF262D1B),
+    inverseSurface     = Color(0xFFF2F3E9),
+    inverseOnSurface   = Color(0xFF0B0E08),
+    inversePrimary     = Color(0xFF526B16),
+    scrim              = Color(0x80000000),
+)
 
 private val LightColors = lightColorScheme(
-    primary            = Color(0xFF2F855A),   // checks, flame, FAB, active chips
+    primary            = Color(0xFF526B16),
     onPrimary          = Color(0xFFFFFFFF),
-    primaryContainer   = Color(0xFFE8F7EE),   // mood panel, done rows, nav pill
-    onPrimaryContainer = Color(0xFF0E1B14),
-    secondary          = Color(0xFF519075),   // wordmark "um", sparkline
+    primaryContainer   = Color(0xFFE4F0B4),
+    onPrimaryContainer = Color(0xFF1C2114),
+    secondary          = Color(0xFF416D86),
     onSecondary        = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFE8F7EE),
-    onSecondaryContainer = Color(0xFF0E1B14),
-    tertiary           = Color(0xFF7FD1B9),   // chain filled cells
-    onTertiary         = Color(0xFF0E1B14),
-    tertiaryContainer  = Color(0xFFE8F7EE),
-    onTertiaryContainer = Color(0xFF0E1B14),
-    error              = Color(0xFFBA4A3F),   // destructive actions ONLY — never streaks
+    secondaryContainer = Color(0xFFDCE6EC),
+    onSecondaryContainer = Color(0xFF1C2114),
+    tertiary           = Color(0xFF557C25),
+    onTertiary         = Color(0xFFFFFFFF),
+    tertiaryContainer  = Color(0xFFE2EED0),
+    onTertiaryContainer = Color(0xFF1C2114),
+    error              = Color(0xFFB64F43),
     onError            = Color(0xFFFFFFFF),
     errorContainer     = Color(0xFFFBE3E1),
     onErrorContainer   = Color(0xFF40211D),
-    background         = Color(0xFFF8FBF8),
-    onBackground       = Color(0xFF0E1B14),
-    surface            = Color(0xFFF5F8F4),   // screen well / inset panels
-    onSurface          = Color(0xFF0E1B14),
-    surfaceVariant     = Color(0xFFFFFFFF),   // cards, habit rows, mood buttons
-    onSurfaceVariant   = Color(0xFF5D6D63),   // meta text, kickers
-    surfaceTint        = Color(0xFF2F855A),
-    outline            = Color(0x140E1B14),   // ink @ 8% hairlines
-    outlineVariant     = Color(0x0F0E1B14),
-    inverseSurface     = Color(0xFF0E1B14),
-    inverseOnSurface   = Color(0xFFF5F8F4),
-    inversePrimary     = Color(0xFF5CB98A),
+    background         = Color(0xFFF4F5EA),
+    onBackground       = Color(0xFF1C2114),
+    surface            = Color(0xFAFBEF),
+    onSurface          = Color(0xFF1C2114),
+    surfaceVariant     = Color(0xFFFFFFFF),
+    onSurfaceVariant   = Color(0xFF59604A),
+    surfaceTint        = Color(0xFF526B16),
+    outline            = Color(0xFFD9DEC9),
+    outlineVariant     = Color(0xFFE9EDDA),
+    inverseSurface     = Color(0xFF1C2114),
+    inverseOnSurface   = Color(0xFFFAFBEF),
+    inversePrimary     = Color(0xFFD7F75B),
     scrim              = Color(0x80000000),
 )
-
-private val DarkColors = darkColorScheme(
-    primary            = Color(0xFF5CB98A),
-    onPrimary          = Color(0xFF0E1B14),
-    primaryContainer   = Color(0xFF1D3529),
-    onPrimaryContainer = Color(0xFFEAF4EE),
-    secondary          = Color(0xFF7FD1B9),
-    onSecondary        = Color(0xFF0E1B14),
-    secondaryContainer = Color(0xFF1D3529),
-    onSecondaryContainer = Color(0xFFEAF4EE),
-    tertiary           = Color(0xFF7FD1B9),
-    onTertiary         = Color(0xFF0E1B14),
-    tertiaryContainer  = Color(0xFF1D3529),
-    onTertiaryContainer = Color(0xFFEAF4EE),
-    error              = Color(0xFFE58A80),
-    onError            = Color(0xFF40211D),
-    errorContainer     = Color(0xFF3A221F),
-    onErrorContainer   = Color(0xFFE58A80),
-    background         = Color(0xFF0B100D),
-    onBackground       = Color(0xFFEAF4EE),
-    surface            = Color(0xFF101712),
-    onSurface          = Color(0xFFEAF4EE),
-    surfaceVariant     = Color(0xFF141B16),
-    onSurfaceVariant   = Color(0xFF9BAFA3),
-    surfaceTint        = Color(0xFF5CB98A),
-    outline            = Color(0x1AEAF4EE),   // ink @ 10%
-    outlineVariant     = Color(0x14EAF4EE),
-    inverseSurface     = Color(0xFFEAF4EE),
-    inverseOnSurface   = Color(0xFF0E1B14),
-    inversePrimary     = Color(0xFF2F855A),
-    scrim              = Color(0x80000000),
-)
-
-/* ── Habit icon tints · DESIGN.md §3.2 ──────────────────────── */
 
 data class HabitTints(val sleep: Color, val move: Color, val noPhone: Color, val water: Color)
 
@@ -107,39 +102,28 @@ private val DarkHabitTints = HabitTints(
 
 val LocalHabitTints = staticCompositionLocalOf { DarkHabitTints }
 
-/** Usage: `Momentum.Tints.sleep` inside any composable. */
 object Momentum {
     val Tints: HabitTints @Composable get() = LocalHabitTints.current
 }
 
-/* ── Typography · DESIGN.md §4 ─────────────────────────────────
-   Mapped onto M3 slots; platform default sans, weights 400–800. */
-
 val MomentumTypography = Typography(
-    // Display — 32sp/800 · streak count, stat numbers
     displayLarge = TextStyle(
-        fontWeight = FontWeight.ExtraBold, fontSize = 32.sp,
-        lineHeight = 35.sp, letterSpacing = (-0.5).sp,
+        fontWeight = FontWeight.ExtraBold, fontSize = 34.sp,
+        lineHeight = 38.sp, letterSpacing = (-0.5).sp,
     ),
-    // Headline — 20sp/800 · wordmark, card titles
     headlineMedium = TextStyle(
-        fontWeight = FontWeight.ExtraBold, fontSize = 20.sp,
-        lineHeight = 23.sp, letterSpacing = (-0.4).sp,
+        fontWeight = FontWeight.Bold, fontSize = 26.sp,
+        lineHeight = 30.sp, letterSpacing = (-0.4).sp,
     ),
-    // Title — 16sp/700 · habit names, dialog titles
     titleMedium = TextStyle(
-        fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 21.sp,
+        fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 22.sp,
     ),
-    // Body — 14sp/400 · notes, descriptions
     bodyMedium = TextStyle(
         fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 22.sp,
     ),
-    // Caption — 12sp/500 · streak line, "2/4 done"
     bodySmall = TextStyle(
         fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 17.sp,
     ),
-    // Kicker — 11sp/700 uppercase +14% · section labels.
-    // Apply `uppercase()` on the string at call site; tracking ≈ 1.5sp.
     labelSmall = TextStyle(
         fontWeight = FontWeight.Bold, fontSize = 11.sp,
         lineHeight = 13.sp, letterSpacing = 1.5.sp,
@@ -149,21 +133,17 @@ val MomentumTypography = Typography(
     ),
 )
 
-/* ── Shape · DESIGN.md §5 ────────────────────────────────────── */
-
 val MomentumShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),   // chain cells
-    small      = RoundedCornerShape(12.dp),  // radius.xs — icon tiles, info notes
-    medium     = RoundedCornerShape(16.dp),  // habit rows, cards, mood panel
-    large      = RoundedCornerShape(20.dp),  // radius.md
-    extraLarge = RoundedCornerShape(32.dp),  // radius.lg — sheets, dialogs
+    extraSmall = RoundedCornerShape(8.dp),
+    small      = RoundedCornerShape(12.dp),
+    medium     = RoundedCornerShape(16.dp),
+    large      = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(32.dp),
 )
-
-/* ── Theme ──────────────────────────────────────────────────── */
 
 @Composable
 fun MomentumTheme(
-    darkTheme: Boolean = true,
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
     CompositionLocalProvider(
@@ -177,6 +157,3 @@ fun MomentumTheme(
         )
     }
 }
-
-
-

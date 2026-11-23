@@ -10,16 +10,25 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.momentum.app.data.local.AppDatabase
 import com.momentum.app.data.model.Habit
+import com.momentum.app.data.model.HabitImpact
 import com.momentum.app.data.model.HabitLog
+import com.momentum.app.data.model.HabitStreak
+import com.momentum.app.data.model.LagWindow
+import com.momentum.app.data.model.MoodLog
 import com.momentum.app.data.model.SourceType
+import com.momentum.app.data.model.TimeLaggedImpact
 import com.momentum.app.data.preferences.UserPreferencesRepository
 import com.momentum.app.data.repository.MomentumRepository
+import com.momentum.app.util.StreakCalculator
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -56,6 +65,90 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val todayLogs: StateFlow<List<HabitLog>> = repository.observeTodayHabitLogs()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val todayMood: StateFlow<MoodLog?> = repository.observeTodayMood()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val moodLogs: StateFlow<List<MoodLog>> = repository.observeMoodHistory(90)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val recentLogs: StateFlow<List<HabitLog>> = repository.observeRecentLogs(365)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val habitImpacts: StateFlow<List<HabitImpact>> = repository.observeHabitImpacts(30)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedLagWindow = MutableStateFlow(LagWindow.T1_PREVIOUS_DAY)
+    val selectedLagWindow: StateFlow<LagWindow> = _selectedLagWindow.asStateFlow()
+
+    fun selectLagWindow(lag: LagWindow) {
+        _selectedLagWindow.value = lag
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val timeLaggedImpacts: StateFlow<List<TimeLaggedImpact>> = _selectedLagWindow.flatMapLatest { lag ->
+        repository.observeTimeLaggedImpacts(90, lag)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val habitStreaks: StateFlow<Map<Long, HabitStreak>> = combine(activeHabits, recentLogs) { habits, logs ->
+        val logsByHabit = logs.groupBy { it.habitId }
+        habits.associate { habit ->
+            val habitLogs = logsByHabit[habit.id] ?: emptyList()
+            habit.id to StreakCalculator.calculateStreak(habitLogs)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    val contextInsights: StateFlow<List<com.momentum.app.data.analysis.ContextInsight>> = MutableStateFlow(
+        com.momentum.app.data.analysis.ContextEngine.generateContextInsights()
+    ).asStateFlow()
+
+    private val _isDisruptionDismissed = MutableStateFlow(false)
+    val disruptionState: StateFlow<com.momentum.app.data.analysis.DisruptionState> = combine(recentLogs, _isDisruptionDismissed) { logs, dismissed ->
+        if (dismissed) {
+            com.momentum.app.data.analysis.DisruptionState(false, null, false)
+        } else {
+            com.momentum.app.data.analysis.DisruptionEngine.evaluateDisruption(logs)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.momentum.app.data.analysis.DisruptionState(false, null, false))
+
+    fun dismissDisruptionBanner() {
+        _isDisruptionDismissed.value = true
+    }
+
+    private val _experiments = MutableStateFlow(
+        listOf(
+            com.momentum.app.data.model.Experiment(
+                id = "exp_1",
+                title = "Morning Walk vs Evening Walk",
+                hypothesis = "Moving before 9 AM produces higher afternoon mood lift than evening exercise.",
+                variantA = "Morning Walk (8 AM)",
+                variantB = "Evening Walk (6 PM)",
+                durationDays = 14,
+                startDate = LocalDate.now().minusDays(5),
+                currentDay = 5,
+                activeVariant = "Variant A",
+                variantAMoodLiftPct = 28,
+                variantBMoodLiftPct = 6
+            )
+        )
+    )
+    val experiments: StateFlow<List<com.momentum.app.data.model.Experiment>> = _experiments.asStateFlow()
+
+    fun switchExperimentVariant(experimentId: String, newVariant: String) {
+        _experiments.value = _experiments.value.map { exp ->
+            if (exp.id == experimentId) exp.copy(activeVariant = newVariant) else exp
+        }
+    }
+
+    val wearOSStatus: StateFlow<com.momentum.app.data.wear.WearOSStatus> = MutableStateFlow(
+        com.momentum.app.data.wear.WearOSManager.getWearStatus(application)
+    ).asStateFlow()
+
+    val reminderTimesList: StateFlow<List<Pair<Int, Int>>> = userPrefs.reminderTimesList
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf(Pair(21, 0)))
+
+    val isReminderEnabled: StateFlow<Boolean> = userPrefs.isReminderEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     // Timer state
     val presets = listOf(
         TimerPreset("25/5", 25, 5),
@@ -91,6 +184,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
+
+    private val _editingHabit = MutableStateFlow<Habit?>(null)
+    val editingHabit: StateFlow<Habit?> = _editingHabit.asStateFlow()
+
+    private val _isAddingHabit = MutableStateFlow(false)
+    val isAddingHabit: StateFlow<Boolean> = _isAddingHabit.asStateFlow()
 
     private var timerJob: Job? = null
 
@@ -236,6 +335,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun confirmPassiveLog(habitId: Long) {
+        viewModelScope.launch {
+            repository.confirmPassiveLog(habitId, LocalDate.now())
+        }
+    }
+
+    fun logMood(score: Int) {
+        viewModelScope.launch {
+            repository.logMood(LocalDate.now(), score, 5)
+            _snackbarMessage.value = "Mood logged"
+        }
+    }
+
+    fun submitDailyMetrics(mood: Float, energy: Float) {
+        viewModelScope.launch {
+            repository.logDailyMetrics(LocalDate.now(), mood.toInt(), energy.toInt())
+            _snackbarMessage.value = "Daily metrics updated"
+        }
+    }
+
     fun addHabit(title: String) {
         viewModelScope.launch {
             val trimmed = title.trim()
@@ -251,6 +370,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.deleteHabit(habit)
             _snackbarMessage.value = "Habit removed"
         }
+    }
+
+    fun startEditingHabit(habit: Habit) {
+        _editingHabit.value = habit
+    }
+
+    fun stopEditingHabit() {
+        _editingHabit.value = null
+    }
+
+    fun startAddingHabit() {
+        _isAddingHabit.value = true
+    }
+
+    fun stopAddingHabit() {
+        _isAddingHabit.value = false
     }
 
     fun setSoundEnabled(enabled: Boolean) {
