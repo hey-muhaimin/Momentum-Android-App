@@ -2,247 +2,213 @@ package com.momentum.app.ui.screens
 
 import android.Manifest
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.momentum.app.data.model.Habit
-import com.momentum.app.ui.components.IconHelper
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+data class StarterHabitItem(
+    val name: String,
+    val iconSymbol: String,
+    val iconKey: String,
+    val colorHex: String
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OnboardingScreen(
     onComplete: (
-        starterHabits: List<Habit>,
+        starterHabitNames: List<String>,
         initialMoodScore: Int?,
         completedHabitNames: Set<String>,
         reminderHour: Int,
         reminderMinute: Int,
         enableReminder: Boolean
-    ) -> Unit
+    ) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val haptic = LocalHapticFeedback.current
-
     var currentStep by remember { mutableIntStateOf(0) }
 
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceContainer = MaterialTheme.colorScheme.surfaceContainer
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-    val outlineColor = MaterialTheme.colorScheme.outline
-    val onSurface = MaterialTheme.colorScheme.onSurface
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    BackHandler(enabled = currentStep > 0) {
+        currentStep--
+    }
 
-    // Seeded Suggestions
-    val defaultSuggestions = remember {
+    val defaultHabits = remember {
         mutableStateListOf(
-            Habit(name = "Sleep 7+ hrs", colorHex = "#7DD8C6", iconKey = "sleep", sortOrder = 0),
-            Habit(name = "Move 20 min", colorHex = "#FFB84D", iconKey = "exercise", sortOrder = 1),
-            Habit(name = "Read", colorHex = "#B08CFF", iconKey = "book", sortOrder = 2),
-            Habit(name = "No phone in bed", colorHex = "#FF7A6E", iconKey = "phone", sortOrder = 3),
-            Habit(name = "Drink water", colorHex = "#64B5F6", iconKey = "water", sortOrder = 4),
-            Habit(name = "Journal", colorHex = "#A8E6CF", iconKey = "journal", sortOrder = 5)
+            StarterHabitItem("Sleep 7+ hrs", "☾", "sleep", "#1D352F"),
+            StarterHabitItem("Move 20 min", "↗", "move", "#3A2F1B"),
+            StarterHabitItem("Read", "▤", "book", "#263318"),
+            StarterHabitItem("No phone in bed", "▣", "phone", "#3A221F"),
+            StarterHabitItem("Drink water", "◈", "water", "#1B2B3A"),
+            StarterHabitItem("Journal", "✎", "journal", "#1D352F")
         )
     }
 
-    // Selected starter habits (Pre-select NONE)
-    val selectedStarterHabits = remember { mutableStateListOf<Habit>() }
+    // Default pre-selected habits
+    val selectedHabitNames = remember {
+        mutableStateListOf("Sleep 7+ hrs", "Move 20 min")
+    }
 
-    // Dialog state for custom habit
-    var showCustomHabitDialog by remember { mutableStateOf(false) }
-    var customHabitName by remember { mutableStateOf("") }
+    // Step 3 check-in state
+    var selectedMoodScore by remember { mutableStateOf<Int?>(4) } // Default 😊
+    val completedHabitNames = remember {
+        mutableStateListOf("Sleep 7+ hrs")
+    }
 
-    // Step 3 state
-    var selectedMood by remember { mutableStateOf<Int?>(null) }
-    val completedHabitNamesForToday = remember { mutableStateListOf<String>() }
-
-    // Step 4 state
-    var reminderHour by remember { mutableIntStateOf(20) } // Default 8:00 PM
+    // Step 4 reminder state
+    var reminderHour by remember { mutableIntStateOf(20) } // 8:00 PM
     var reminderMinute by remember { mutableIntStateOf(0) }
     var showTimeDropdown by remember { mutableStateOf(false) }
+
+    // Dialog for adding custom habit
+    var showCustomHabitDialog by remember { mutableStateOf(false) }
+    var customHabitInput by remember { mutableStateOf("") }
 
     val notificationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { _ ->
         onComplete(
-            selectedStarterHabits.toList(),
-            selectedMood,
-            completedHabitNamesForToday.toSet(),
+            selectedHabitNames.toList(),
+            selectedMoodScore,
+            completedHabitNames.toSet(),
             reminderHour,
             reminderMinute,
             true
         )
     }
 
-    val finishWithReminderChoice = { enable: Boolean ->
-        if (enable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    val finishOnboarding = { enableReminder: Boolean ->
+        if (enableReminder && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             onComplete(
-                selectedStarterHabits.toList(),
-                selectedMood,
-                completedHabitNamesForToday.toSet(),
+                selectedHabitNames.toList(),
+                selectedMoodScore,
+                completedHabitNames.toSet(),
                 reminderHour,
                 reminderMinute,
-                enable
+                enableReminder
             )
         }
     }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp)
+            .padding(horizontal = 24.dp)
+            .padding(top = 16.dp, bottom = 24.dp)
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Top Navigation Bar with Back button for steps 1..3 and progress bar
+        // Step indicator bars and back button
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (currentStep > 0) {
                 IconButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        currentStep--
-                    },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .padding(end = 6.dp)
+                    onClick = { currentStep-- },
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = onSurface
+                        tint = MaterialTheme.colorScheme.onBackground
                     )
                 }
+                Spacer(Modifier.width(8.dp))
             }
 
             Row(
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                (0..3).forEach { step ->
+                (0..3).forEach { stepIdx ->
+                    val isActive = stepIdx <= currentStep
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(4.dp)
                             .clip(CircleShape)
-                            .background(if (step <= currentStep) primaryColor else surfaceVariant)
+                            .background(
+                                if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                            )
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Step Content Switcher
+        // Animated step content
         AnimatedContent(
             targetState = currentStep,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             modifier = Modifier.weight(1f),
-            label = "onboarding_step_transition"
+            label = "onboarding_step_content"
         ) { step ->
             when (step) {
-                0 -> WelcomeStep(onStart = { currentStep = 1 })
-                1 -> PickHabitsStep(
-                    suggestions = defaultSuggestions,
-                    selectedHabits = selectedStarterHabits,
-                    onToggleHabit = { habit ->
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (selectedStarterHabits.any { it.name == habit.name }) {
-                            selectedStarterHabits.removeAll { it.name == habit.name }
+                0 -> StepWelcome(onStart = { currentStep = 1 })
+                1 -> StepPickHabits(
+                    habitItems = defaultHabits,
+                    selectedNames = selectedHabitNames,
+                    onToggle = { name ->
+                        if (selectedHabitNames.contains(name)) {
+                            selectedHabitNames.remove(name)
                         } else {
-                            selectedStarterHabits.add(habit)
+                            selectedHabitNames.add(name)
                         }
                     },
                     onOpenCustomDialog = { showCustomHabitDialog = true },
                     onContinue = { currentStep = 2 }
                 )
-                2 -> FirstCheckInStep(
-                    selectedHabits = selectedStarterHabits,
-                    selectedMood = selectedMood,
-                    completedHabitNames = completedHabitNamesForToday,
-                    onMoodSelected = { rating ->
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        selectedMood = rating
-                    },
-                    onToggleHabitForToday = { name ->
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (completedHabitNamesForToday.contains(name)) {
-                            completedHabitNamesForToday.remove(name)
+                2 -> StepFirstCheckIn(
+                    selectedHabitNames = selectedHabitNames,
+                    selectedMood = selectedMoodScore,
+                    completedNames = completedHabitNames,
+                    onSelectMood = { selectedMoodScore = it },
+                    onToggleCompleted = { name ->
+                        if (completedHabitNames.contains(name)) {
+                            completedHabitNames.remove(name)
                         } else {
-                            completedHabitNamesForToday.add(name)
+                            completedHabitNames.add(name)
                         }
                     },
                     onContinue = { currentStep = 3 }
                 )
-                3 -> ReminderStep(
+                3 -> StepDailyReminder(
                     reminderHour = reminderHour,
                     reminderMinute = reminderMinute,
                     showDropdown = showTimeDropdown,
@@ -252,64 +218,46 @@ fun OnboardingScreen(
                         reminderMinute = m
                         showTimeDropdown = false
                     },
-                    onRemindMe = { finishWithReminderChoice(true) },
-                    onSkip = { finishWithReminderChoice(false) }
+                    onRemindMe = { finishOnboarding(true) },
+                    onSkip = { finishOnboarding(false) }
                 )
             }
         }
     }
 
-    // Custom Habit Add Dialog
+    // Custom Habit Dialog
     if (showCustomHabitDialog) {
         AlertDialog(
             onDismissRequest = { showCustomHabitDialog = false },
-            containerColor = surfaceContainer,
-            title = {
-                Text("Add Custom Habit", color = onSurface, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            },
+            title = { Text("Custom Habit", fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
-                    value = customHabitName,
-                    onValueChange = { customHabitName = it },
-                    placeholder = { Text("e.g. Meditate 10m", color = onSurfaceVariant) },
+                    value = customHabitInput,
+                    onValueChange = { customHabitInput = it },
+                    placeholder = { Text("e.g. Meditate 10 min") },
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = primaryColor,
-                        unfocusedBorderColor = outlineColor,
-                        focusedTextColor = onSurface,
-                        unfocusedTextColor = onSurface
-                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        val trimmed = customHabitName.trim()
+                        val trimmed = customHabitInput.trim()
                         if (trimmed.isNotEmpty()) {
-                            val newHabit = Habit(
-                                name = trimmed,
-                                colorHex = "#FFB84D",
-                                iconKey = "star",
-                                sortOrder = defaultSuggestions.size
-                            )
-                            defaultSuggestions.add(newHabit)
-                            selectedStarterHabits.add(newHabit)
-                            customHabitName = ""
+                            val newItem = StarterHabitItem(trimmed, "✦", "star", "#303B16")
+                            defaultHabits.add(newItem)
+                            selectedHabitNames.add(trimmed)
+                            customHabitInput = ""
                             showCustomHabitDialog = false
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryColor,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+                    }
                 ) {
                     Text("Add")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCustomHabitDialog = false }) {
-                    Text("Cancel", color = onSurfaceVariant)
+                    Text("Cancel")
                 }
             }
         )
@@ -317,47 +265,114 @@ fun OnboardingScreen(
 }
 
 @Composable
-private fun WelcomeStep(onStart: () -> Unit) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val onPrimary = MaterialTheme.colorScheme.onPrimary
-    val onSurface = MaterialTheme.colorScheme.onSurface
-
+private fun StepWelcome(onStart: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 12.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Leaf icon
+            val leafColor = MaterialTheme.colorScheme.primary
+            Canvas(modifier = Modifier.size(62.dp)) {
+                val stroke = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                val path = Path().apply {
+                    moveTo(size.width * 0.16f, size.height * 0.84f)
+                    cubicTo(
+                        size.width * 0.16f, size.height * 0.46f,
+                        size.width * 0.41f, size.height * 0.21f,
+                        size.width * 0.84f, size.height * 0.17f
+                    )
+                    cubicTo(
+                        size.width * 0.84f, size.height * 0.59f,
+                        size.width * 0.59f, size.height * 0.84f,
+                        size.width * 0.16f, size.height * 0.84f
+                    )
+                    close()
+                }
+                drawPath(path, color = leafColor, style = stroke)
+
+                val veinPath = Path().apply {
+                    moveTo(size.width * 0.16f, size.height * 0.84f)
+                    cubicTo(
+                        size.width * 0.33f, size.height * 0.63f,
+                        size.width * 0.50f, size.height * 0.50f,
+                        size.width * 0.75f, size.height * 0.42f
+                    )
+                }
+                drawPath(veinPath, color = leafColor, style = stroke)
+            }
+
+            Spacer(Modifier.height(24.dp))
+
             Text(
                 text = "Momentum",
-                color = primaryColor,
-                fontSize = 32.sp,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.5).sp
+                fontSize = 22.sp
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
             Text(
-                text = "Momentum tracks your habits and your mood side by side — so you can see which habits actually help, not just which ones you did.",
-                color = onSurface,
-                fontSize = 18.sp,
-                lineHeight = 28.sp,
-                fontWeight = FontWeight.Medium
+                text = "Understand yourself.\nMove forward.",
+                style = MaterialTheme.typography.displayLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                lineHeight = 40.sp,
+                fontSize = 32.sp
             )
+
+            Spacer(Modifier.height(16.dp))
+
+            Text(
+                text = "Build routines and discover how they connect to your mood and energy.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 15.sp,
+                lineHeight = 22.sp
+            )
+
+            Spacer(Modifier.height(28.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+                Text(
+                    text = "Your data stays on your device.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+            }
         }
 
         Button(
             onClick = onStart,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = primaryColor, contentColor = onPrimary),
-            shape = RoundedCornerShape(28.dp)
+                .height(54.dp),
+            shape = RoundedCornerShape(50)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Get started", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text("Get started", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(8.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -365,172 +380,150 @@ private fun WelcomeStep(onStart: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PickHabitsStep(
-    suggestions: List<Habit>,
-    selectedHabits: List<Habit>,
-    onToggleHabit: (Habit) -> Unit,
+private fun StepPickHabits(
+    habitItems: List<StarterHabitItem>,
+    selectedNames: List<String>,
+    onToggle: (String) -> Unit,
     onOpenCustomDialog: () -> Unit,
     onContinue: () -> Unit
 ) {
-    val count = selectedHabits.size
-    val isValid = count >= 1
-
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceContainer = MaterialTheme.colorScheme.surfaceContainer
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-    val outlineColor = MaterialTheme.colorScheme.outline
-    val onSurface = MaterialTheme.colorScheme.onSurface
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-    val secondaryColor = MaterialTheme.colorScheme.secondary
-
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 12.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column {
-            Text(
-                text = "Pick habits to start.",
-                color = onSurface,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold
-            )
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "What would you like\nto build?",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    lineHeight = 32.sp
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "Select 1 or more habits. You can change these later.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(18.dp))
+            }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            item {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    habitItems.forEach { item ->
+                        val isSelected = selectedNames.contains(item.name)
+                        Surface(
+                            onClick = { onToggle(item.name) },
+                            shape = RoundedCornerShape(50),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                            border = if (isSelected) CardDefaults.outlinedCardBorder() else null
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = item.iconSymbol,
+                                    fontSize = 15.sp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = item.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontSize = 13.5.sp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                                if (isSelected) {
+                                    Text("✓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
 
-            Text(
-                text = "Select 1 or more habits to build momentum.",
-                color = onSurfaceVariant,
-                fontSize = 15.sp
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                suggestions.forEach { habit ->
-                    val isSelected = selectedHabits.any { it.name == habit.name }
-                    val parseColor = runCatching {
-                        Color(android.graphics.Color.parseColor(habit.colorHex))
-                    }.getOrDefault(primaryColor)
-
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) surfaceVariant else surfaceContainer)
-                            .border(
-                                width = if (isSelected) 1.5.dp else 1.dp,
-                                color = if (isSelected) parseColor else outlineColor,
-                                shape = RoundedCornerShape(16.dp)
-                            )
-                            .clickable { onToggleHabit(habit) }
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    // Custom habit chip
+                    Surface(
+                        onClick = onOpenCustomDialog,
+                        shape = RoundedCornerShape(50),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = CardDefaults.outlinedCardBorder()
                     ) {
-                        Icon(
-                            imageVector = IconHelper.getIcon(habit.iconKey),
-                            contentDescription = null,
-                            tint = parseColor,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = habit.name,
-                            color = onSurface,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        if (isSelected) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = parseColor,
-                                modifier = Modifier.size(16.dp)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = "Custom habit",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontSize = 13.5.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
                 }
-
-                // Custom Habit Chip
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(surfaceContainer)
-                        .border(1.dp, primaryColor.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-                        .clickable { onOpenCustomDialog() }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        tint = primaryColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Custom habit",
-                        color = primaryColor,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Selected: $count habit${if (count != 1) "s" else ""}",
-                color = if (isValid) secondaryColor else onSurfaceVariant,
-                fontSize = 13.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold
-            )
+            item {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "SELECTED: ${selectedNames.size} HABITS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
 
         Button(
             onClick = onContinue,
-            enabled = isValid,
+            enabled = selectedNames.isNotEmpty(),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = primaryColor,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                disabledContainerColor = surfaceVariant,
-                disabledContentColor = onSurfaceVariant.copy(alpha = 0.4f)
-            ),
-            shape = RoundedCornerShape(28.dp)
+                .height(54.dp),
+            shape = RoundedCornerShape(50)
         ) {
-            Text("Continue", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text("Continue", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(8.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }
 
 @Composable
-private fun FirstCheckInStep(
-    selectedHabits: List<Habit>,
+private fun StepFirstCheckIn(
+    selectedHabitNames: List<String>,
     selectedMood: Int?,
-    completedHabitNames: List<String>,
-    onMoodSelected: (Int) -> Unit,
-    onToggleHabitForToday: (String) -> Unit,
+    completedNames: List<String>,
+    onSelectMood: (Int) -> Unit,
+    onToggleCompleted: (String) -> Unit,
     onContinue: () -> Unit
 ) {
-    val todayFormatted = remember {
-        LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMM d"))
-    }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()) }
+    val todayDate = remember { LocalDate.now().format(dateFormatter) }
 
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceContainer = MaterialTheme.colorScheme.surfaceContainer
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-    val outlineColor = MaterialTheme.colorScheme.outline
-    val onSurface = MaterialTheme.colorScheme.onSurface
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-
-    val emojis = listOf(
+    val moodOptions = listOf(
         1 to "😔",
         2 to "😐",
         3 to "🙂",
@@ -538,183 +531,179 @@ private fun FirstCheckInStep(
         5 to "⚡"
     )
 
-    val hasLogged = selectedMood != null || completedHabitNames.isNotEmpty()
+    val moodDescription = when (selectedMood) {
+        1 -> "Feeling low today. Take it easy."
+        2 -> "Feeling okay. A neutral, quiet day."
+        3 -> "Doing well. Calm and steady."
+        4 -> "Feeling good! Energy is high today."
+        5 -> "Supercharged! Ready to conquer."
+        else -> "Rate how you are feeling right now."
+    }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 12.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column {
-            Text(
-                text = "Today, $todayFormatted",
-                color = primaryColor,
-                fontSize = 14.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "Let's log today.",
-                color = onSurface,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = "Optionally rate your mood and check off completed habits.",
-                color = onSurfaceVariant,
-                fontSize = 15.sp
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Today, $todayDate".uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Let's log today.",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Optional — rate your mood and check off anything you've already done.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(14.dp))
+            }
 
             // Mood Card
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(surfaceContainer)
-                    .border(1.dp, outlineColor, RoundedCornerShape(24.dp))
-                    .padding(20.dp)
-            ) {
-                Column {
-                    Text(
-                        text = "How's your mood & energy today?",
-                        color = onSurface,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.CenterVertically
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        emojis.forEach { (rating, emoji) ->
-                            val isSelected = selectedMood == rating
-                            val scale by animateFloatAsState(
-                                targetValue = if (isSelected) 1.15f else 1.0f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessMediumLow
-                                ),
-                                label = "onboarding_mood_scale"
-                            )
+                        Text(
+                            text = "How's your mood & energy today?",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
 
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .graphicsLayer {
-                                        scaleX = scale
-                                        scaleY = scale
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            moodOptions.forEach { (score, emoji) ->
+                                val isSelected = selectedMood == score
+                                Surface(
+                                    onClick = { onSelectMood(score) },
+                                    shape = CircleShape,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                    border = if (isSelected) CardDefaults.outlinedCardBorder() else null,
+                                    modifier = Modifier.size(46.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(text = emoji, fontSize = 22.sp)
                                     }
-                                    .shadow(
-                                        elevation = if (isSelected) 6.dp else 2.dp,
-                                        shape = CircleShape
-                                    )
-                                    .clip(CircleShape)
-                                    .background(
-                                        color = if (isSelected) primaryColor else surfaceVariant,
-                                        shape = CircleShape
-                                    )
-                                    .border(
-                                        width = if (isSelected) 0.dp else 1.dp,
-                                        color = outlineColor,
-                                        shape = CircleShape
-                                    )
-                                    .clickable { onMoodSelected(rating) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = emoji, fontSize = 22.sp)
+                                }
                             }
                         }
+
+                        Text(
+                            text = moodDescription,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            item {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "CHECK OFF TODAY'S HABITS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
-            Text(
-                text = "CHECK OFF TODAY'S HABITS",
-                color = onSurfaceVariant,
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.sp
-            )
+            items(selectedHabitNames.size) { idx ->
+                val name = selectedHabitNames[idx]
+                val isCompleted = completedNames.contains(name)
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                selectedHabits.forEach { habit ->
-                    val isChecked = completedHabitNames.contains(habit.name)
-                    val parseColor = runCatching {
-                        Color(android.graphics.Color.parseColor(habit.colorHex))
-                    }.getOrDefault(primaryColor)
-
+                ElevatedCard(
+                    onClick = { onToggleCompleted(name) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = if (isCompleted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(surfaceContainer)
-                            .border(
-                                width = 1.dp,
-                                color = if (isChecked) parseColor else outlineColor,
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                            .clickable { onToggleHabitForToday(habit.name) }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(parseColor.copy(alpha = 0.15f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = IconHelper.getIcon(habit.iconKey),
-                                    contentDescription = null,
-                                    tint = parseColor,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surface),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
-                                text = habit.name,
-                                color = onSurface,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold
+                                text = when {
+                                    name.contains("Sleep", ignoreCase = true) -> "☾"
+                                    name.contains("Move", ignoreCase = true) -> "↗"
+                                    name.contains("Water", ignoreCase = true) -> "◈"
+                                    name.contains("Phone", ignoreCase = true) -> "▣"
+                                    name.contains("Read", ignoreCase = true) -> "▤"
+                                    else -> "✦"
+                                },
+                                fontSize = 16.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
                             )
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isChecked) parseColor else surfaceVariant)
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isChecked) parseColor else outlineColor,
-                                    shape = RoundedCornerShape(8.dp)
-                                ),
-                            contentAlignment = Alignment.Center
+                        Spacer(Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (isCompleted) "Completed today" else "Not logged yet",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isCompleted) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            border = CardDefaults.outlinedCardBorder(),
+                            modifier = Modifier.size(26.dp)
                         ) {
-                            if (isChecked) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                            Box(contentAlignment = Alignment.Center) {
+                                if (isCompleted) {
+                                    Text("✓", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
                             }
                         }
                     }
@@ -724,27 +713,18 @@ private fun FirstCheckInStep(
 
         Button(
             onClick = onContinue,
-            enabled = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = primaryColor,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ),
-            shape = RoundedCornerShape(28.dp)
+                .height(54.dp),
+            shape = RoundedCornerShape(50)
         ) {
-            Text(
-                text = if (hasLogged) "Save first log" else "Continue",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Save first log", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun ReminderStep(
+private fun StepDailyReminder(
     reminderHour: Int,
     reminderMinute: Int,
     showDropdown: Boolean,
@@ -753,14 +733,7 @@ private fun ReminderStep(
     onRemindMe: () -> Unit,
     onSkip: () -> Unit
 ) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceContainer = MaterialTheme.colorScheme.surfaceContainer
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-    val outlineColor = MaterialTheme.colorScheme.outline
-    val onSurface = MaterialTheme.colorScheme.onSurface
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-
-    val times = listOf(
+    val timeOptions = listOf(
         Pair(19, 0) to "7:00 PM",
         Pair(20, 0) to "8:00 PM",
         Pair(20, 30) to "8:30 PM",
@@ -769,141 +742,139 @@ private fun ReminderStep(
         Pair(22, 0) to "10:00 PM"
     )
 
-    val selectedLabel = times.find { it.first.first == reminderHour && it.first.second == reminderMinute }?.second
-        ?: String.format("%d:%02d", if (reminderHour > 12) reminderHour - 12 else reminderHour, reminderMinute) + if (reminderHour >= 12) " PM" else " AM"
+    val currentLabel = timeOptions.find { it.first.first == reminderHour && it.first.second == reminderMinute }?.second
+        ?: String.format(Locale.getDefault(), "%d:%02d %s", if (reminderHour > 12) reminderHour - 12 else reminderHour, reminderMinute, if (reminderHour >= 12) "PM" else "AM")
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(bottom = 12.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
             Text(
-                text = "Daily Reminder",
-                color = primaryColor,
-                fontSize = 14.sp,
-                fontFamily = FontFamily.Monospace,
+                text = "DAILY REMINDER",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = "Want a nudge if you haven't logged by evening?",
-                color = onSurface,
-                fontSize = 24.sp,
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
                 lineHeight = 32.sp
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(Modifier.height(28.dp))
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(surfaceContainer)
-                    .border(1.dp, outlineColor, RoundedCornerShape(24.dp))
-                    .padding(24.dp)
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(22.dp)
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(56.dp)
+                            .size(58.dp)
                             .clip(CircleShape)
-                            .background(primaryColor.copy(alpha = 0.15f)),
+                            .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = null,
-                            tint = primaryColor,
-                            modifier = Modifier.size(28.dp)
-                        )
+                        Text("🔔", fontSize = 26.sp)
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
                         text = "Evening Check-in",
-                        color = onSurface,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 17.sp
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
                     Text(
-                        text = "A quick reminder before bed to log your day",
-                        color = onSurfaceVariant,
-                        fontSize = 13.sp,
+                        text = "A quick reminder before bed to log your day.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Time Picker Button with Dropdown
+                    // Time chip with dropdown
                     Box {
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(surfaceVariant)
-                                .border(1.dp, primaryColor.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
-                                .clickable { onToggleDropdown() }
-                                .padding(horizontal = 20.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            onClick = onToggleDropdown,
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = CardDefaults.outlinedCardBorder()
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Schedule,
-                                contentDescription = null,
-                                tint = primaryColor,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = selectedLabel,
-                                color = onSurface,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "▾",
-                                color = primaryColor,
-                                fontSize = 14.sp
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text("◷", fontSize = 16.sp, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    text = currentLabel,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text("⌄", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                            }
                         }
 
                         DropdownMenu(
                             expanded = showDropdown,
                             onDismissRequest = onToggleDropdown,
-                            modifier = Modifier.background(surfaceContainer)
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
                         ) {
-                            times.forEach { (time, label) ->
+                            timeOptions.forEach { (timePair, label) ->
                                 DropdownMenuItem(
-                                    text = { Text(label, color = onSurface, fontFamily = FontFamily.Monospace) },
-                                    onClick = { onSelectTime(time.first, time.second) }
+                                    text = {
+                                        Text(label, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace)
+                                    },
+                                    onClick = { onSelectTime(timePair.first, timePair.second) }
                                 )
                             }
                         }
                     }
                 }
             }
+
+            Spacer(Modifier.height(16.dp))
+
+            Text(
+                text = "You can change or turn this off anytime.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             Button(
                 onClick = onRemindMe,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = primaryColor,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                shape = RoundedCornerShape(28.dp)
+                    .height(54.dp),
+                shape = RoundedCornerShape(50)
             ) {
-                Text("Remind me", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text("Remind me", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
 
             TextButton(
@@ -912,7 +883,7 @@ private fun ReminderStep(
                     .fillMaxWidth()
                     .height(48.dp)
             ) {
-                Text("Skip for now", color = onSurfaceVariant, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                Text("Not now", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }

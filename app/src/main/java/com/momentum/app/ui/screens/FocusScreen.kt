@@ -4,16 +4,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -31,6 +25,7 @@ import java.util.Locale
 @Composable
 fun FocusScreen(
     viewModel: MainViewModel,
+    onOpenBrainDumpSheet: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val presets = viewModel.presets
@@ -39,20 +34,22 @@ fun FocusScreen(
     val remainingSeconds by viewModel.remainingSeconds.collectAsStateWithLifecycle()
     val isRunning by viewModel.isRunning.collectAsStateWithLifecycle()
     val brainNotes by viewModel.brainNotes.collectAsStateWithLifecycle()
-
-    var showBrainDumpSheet by remember { mutableStateOf(false) }
-    var draftNoteText by remember { mutableStateOf("") }
+    val totalFocusMinutes by viewModel.totalFocusMinutesCompletedToday.collectAsStateWithLifecycle()
 
     val totalSecs = (if (timerMode == TimerMode.FOCUS) selectedPreset.focusMinutes else selectedPreset.breakMinutes) * 60
     val progress = if (totalSecs > 0) remainingSeconds.toFloat() / totalSecs.toFloat() else 0f
+
+    val hours = totalFocusMinutes / 60
+    val mins = totalFocusMinutes % 60
+    val formattedTotal = if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-        contentPadding = PaddingValues(vertical = 16.dp)
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
     ) {
         // Header
         item {
@@ -76,27 +73,33 @@ fun FocusScreen(
                     )
                 }
 
-                IconButton(onClick = {}) {
-                    Icon(Icons.Default.Settings, contentDescription = "Focus Settings", tint = MaterialTheme.colorScheme.onBackground)
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("⚙", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
 
-        // Circular Timer Card
+        // Timer Hero Card
         item {
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
-                shape = MaterialTheme.shapes.large
+                shape = RoundedCornerShape(24.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(28.dp),
+                        .padding(horizontal = 20.dp, vertical = 26.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     Box(
                         modifier = Modifier.size(220.dp),
@@ -107,15 +110,15 @@ fun FocusScreen(
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             drawCircle(
                                 color = outlineColor,
-                                radius = size.minDimension / 2f,
-                                style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round)
+                                radius = size.minDimension / 2f - 8.dp.toPx(),
+                                style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round)
                             )
                             drawArc(
                                 color = primaryColor,
                                 startAngle = -90f,
                                 sweepAngle = progress * 360f,
                                 useCenter = false,
-                                style = Stroke(width = 16.dp.toPx(), cap = StrokeCap.Round)
+                                style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round)
                             )
                         }
 
@@ -123,174 +126,165 @@ fun FocusScreen(
                             Text(
                                 text = formatSeconds(remainingSeconds),
                                 style = MaterialTheme.typography.displayLarge,
-                                fontWeight = FontWeight.ExtraBold,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 42.sp
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = if (timerMode == TimerMode.FOCUS) "Focus Time" else "Break Time",
+                                text = if (timerMode == TimerMode.FOCUS) "Focus time" else "Break time",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Centered 64dp Play Button
+                    Button(
+                        onClick = { viewModel.startPauseTimer() },
+                        modifier = Modifier.size(64.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isRunning) "Pause" else "Start",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    Text(
+                        text = "Start when you're ready. Your session stays local.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.5.sp
+                    )
+                }
+            }
+        }
+
+        // Presets Row
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                presets.forEach { preset ->
+                    FilterChip(
+                        selected = selectedPreset == preset,
+                        onClick = { viewModel.selectPreset(preset) },
+                        label = {
+                            Text(
+                                text = preset.label,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        },
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        // Brain Dump Trigger Card
+        item {
+            ElevatedCard(
+                onClick = onOpenBrainDumpSheet,
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("✎", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        Column {
+                            Text("Brain Dump", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "${brainNotes.size} parked thoughts",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Text("＋", fontSize = 22.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // Today's Focus Card
+        item {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "TODAY'S FOCUS",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = formattedTotal,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                            Text(
+                                text = "· 3 sessions",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    // Play / Pause Button inside or below ring
-                    Button(
-                        onClick = { viewModel.startPauseTimer() },
-                        modifier = Modifier.size(64.dp),
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(
-                            imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = "Start/Pause",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Presets Chips
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                presets.forEach { preset ->
-                    FilterChip(
-                        selected = selectedPreset == preset,
-                        onClick = { viewModel.selectPreset(preset) },
-                        label = { Text("${preset.focusMinutes}m Focus") }
-                    )
-                }
-            }
-        }
-
-        // Brain Dump Card
-        item {
-            ElevatedCard(
-                onClick = { showBrainDumpSheet = true },
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Brain Dump",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = if (brainNotes.isEmpty()) "Clear your mind first..." else "${brainNotes.size} parked thoughts",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                     Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(36.dp)
+                        shape = RoundedCornerShape(50),
+                        color = MaterialTheme.colorScheme.primaryContainer
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
+                        Text(
+                            text = "On track",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
-            }
-        }
-    }
-
-    if (showBrainDumpSheet) {
-        ModalBottomSheet(onDismissRequest = { showBrainDumpSheet = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = "Quick Brain Dump",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Park distracting thoughts instantly during your focus sprint.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = draftNoteText,
-                        onValueChange = { draftNoteText = it },
-                        placeholder = { Text("Park a thought...") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Button(
-                        onClick = {
-                            viewModel.addBrainNote(draftNoteText)
-                            draftNoteText = ""
-                        },
-                        modifier = Modifier.height(56.dp)
-                    ) {
-                        Text("Add")
-                    }
-                }
-
-                if (brainNotes.isNotEmpty()) {
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 250.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(brainNotes, key = { it.id }) { note ->
-                            Surface(
-                                shape = MaterialTheme.shapes.small,
-                                color = MaterialTheme.colorScheme.surfaceVariant
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Checkbox(
-                                        checked = note.isDone,
-                                        onCheckedChange = { viewModel.toggleBrainNote(note.id) }
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = note.text,
-                                        modifier = Modifier.weight(1f),
-                                        textDecoration = if (note.isDone) TextDecoration.LineThrough else TextDecoration.None
-                                    )
-                                    IconButton(onClick = { viewModel.deleteBrainNote(note.id) }) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Delete")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(32.dp))
             }
         }
     }

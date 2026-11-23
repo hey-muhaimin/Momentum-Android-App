@@ -6,8 +6,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -21,14 +21,19 @@ class UserPreferencesRepository(private val context: Context) {
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
         val REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
         val REMINDER_TIMES_CSV = stringPreferencesKey("reminder_times_csv")
+        val THEME_MODE = stringPreferencesKey("theme_mode") // "System", "Light", "Dark"
     }
 
     val hasOnboarded: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[PreferencesKeys.HAS_ONBOARDED] ?: false
     }
 
+    val themeMode: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.THEME_MODE] ?: "System"
+    }
+
     val reminderTime: Flow<Pair<Int, Int>> = context.dataStore.data.map { preferences ->
-        val hour = preferences[PreferencesKeys.REMINDER_HOUR] ?: 21
+        val hour = preferences[PreferencesKeys.REMINDER_HOUR] ?: 20
         val minute = preferences[PreferencesKeys.REMINDER_MINUTE] ?: 0
         Pair(hour, minute)
     }
@@ -45,7 +50,7 @@ class UserPreferencesRepository(private val context: Context) {
                 } else null
             }
         } else {
-            val hour = preferences[PreferencesKeys.REMINDER_HOUR] ?: 21
+            val hour = preferences[PreferencesKeys.REMINDER_HOUR] ?: 20
             val minute = preferences[PreferencesKeys.REMINDER_MINUTE] ?: 0
             listOf(Pair(hour, minute))
         }
@@ -58,6 +63,12 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun setOnboarded(onboarded: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.HAS_ONBOARDED] = onboarded
+        }
+    }
+
+    suspend fun setThemeMode(mode: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.THEME_MODE] = mode
         }
     }
 
@@ -77,4 +88,3 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 }
-

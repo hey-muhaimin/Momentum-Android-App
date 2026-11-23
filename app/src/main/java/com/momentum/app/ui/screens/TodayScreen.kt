@@ -8,15 +8,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -27,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import com.momentum.app.data.model.Habit
 import com.momentum.app.data.model.HabitLog
 import com.momentum.app.data.model.MoodLog
-import com.momentum.app.data.model.SourceType
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -37,21 +31,17 @@ fun TodayScreen(
     activeHabits: List<Habit>,
     todayMood: MoodLog?,
     todayLogs: List<HabitLog>,
-    reminderTimesList: List<Pair<Int, Int>> = listOf(Pair(21, 0)),
-    isReminderEnabled: Boolean = true,
-    onUpdateReminderSettings: (List<Pair<Int, Int>>, Boolean) -> Unit = { _, _ -> },
-    onMoodSelected: (Int) -> Unit,
-    onSubmitDailyMetrics: (Float?, Float?) -> Unit = { _, _ -> },
-    onToggleHabit: (Long) -> Unit,
-    onConfirmPassiveLog: (Long) -> Unit = {},
-    onEditHabit: (Habit) -> Unit,
-    onAddHabit: () -> Unit,
     calculateStreak: (Habit) -> Int,
-    disruptionState: com.momentum.app.data.analysis.DisruptionState = com.momentum.app.data.analysis.DisruptionState(false, null, false),
-    onDismissDisruption: () -> Unit = {},
+    onToggleHabit: (Long) -> Unit,
+    onConfirmPassiveLog: (Long) -> Unit,
+    onOpenMoodEnergySheet: () -> Unit,
+    onOpenHabitDetail: (Habit) -> Unit,
+    onOpenAddHabitSheet: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onNavigateToInsights: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val logMap = todayLogs.associateBy { his -> his.habitId }
+    val logMap = todayLogs.associateBy { it.habitId }
     val completedCount = activeHabits.count { habit -> logMap[habit.id]?.completed == true }
     val totalCount = activeHabits.size
     val progressPct = if (totalCount > 0) (completedCount * 100) / totalCount else 0
@@ -59,7 +49,8 @@ fun TodayScreen(
     val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())
     val formattedDate = LocalDate.now().format(dateFormatter)
 
-    var showMoodDialog by remember { mutableStateOf(false) }
+    val moodScore = todayMood?.score ?: 7
+    val energyScore = todayMood?.energyScore ?: 8
 
     LazyColumn(
         modifier = modifier
@@ -67,9 +58,9 @@ fun TodayScreen(
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp)
+        contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
     ) {
-        // Header & Greeting
+        // Header
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -81,7 +72,8 @@ fun TodayScreen(
                         text = "Good evening,\nMuhaimin 👋",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = MaterialTheme.colorScheme.onBackground,
+                        lineHeight = 32.sp
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -92,25 +84,27 @@ fun TodayScreen(
                 }
 
                 Surface(
+                    onClick = onOpenSettings,
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.size(44.dp)
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    border = CardDefaults.outlinedCardBorder(),
+                    modifier = Modifier.size(42.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("M", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text("M", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
                     }
                 }
             }
         }
 
-        // Daily Progress Hero Card
+        // 60% Progress Hero Ring Card
         item {
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
-                shape = MaterialTheme.shapes.large
+                shape = RoundedCornerShape(24.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -120,7 +114,7 @@ fun TodayScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Box(
-                        modifier = Modifier.size(130.dp),
+                        modifier = Modifier.size(140.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         val primaryColor = MaterialTheme.colorScheme.primary
@@ -128,7 +122,7 @@ fun TodayScreen(
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             drawCircle(
                                 color = outlineColor,
-                                radius = size.minDimension / 2f,
+                                radius = size.minDimension / 2f - 6.dp.toPx(),
                                 style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
                             )
                             drawArc(
@@ -139,12 +133,14 @@ fun TodayScreen(
                                 style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
                             )
                         }
+
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = "$progressPct%",
                                 style = MaterialTheme.typography.displayLarge,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 34.sp
                             )
                             Text(
                                 text = "Today",
@@ -160,74 +156,81 @@ fun TodayScreen(
                     ) {
                         Text(
                             text = "$completedCount of $totalCount habits completed",
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
         }
 
-        // Mood & Energy Quick Check-In Card
+        // Dual Mood & Energy Cards
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 ElevatedCard(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { showMoodDialog = true },
-                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    onClick = onOpenMoodEnergySheet,
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(18.dp)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("😊", fontSize = 28.sp)
+                        Text("😊", fontSize = 24.sp)
                         Column {
                             Text(
                                 text = "Mood",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
                             )
                             Text(
-                                text = if (todayMood != null) "Score: ${todayMood.score}/10" else "Tap to log",
+                                text = "$moodScore/10 · Good",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 13.5.sp
                             )
                         }
                     }
                 }
 
                 ElevatedCard(
+                    onClick = onOpenMoodEnergySheet,
                     modifier = Modifier.weight(1f),
-                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(18.dp)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("⚡", fontSize = 28.sp)
+                        Text("⚡", fontSize = 24.sp)
                         Column {
                             Text(
                                 text = "Energy",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
                             )
                             Text(
-                                text = "High",
+                                text = "$energyScore/10 · High",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 13.5.sp
                             )
                         }
                     }
@@ -235,35 +238,56 @@ fun TodayScreen(
             }
         }
 
-        // Contextual Insight Card
+        // Contextual Pattern Insight Card
         item {
             ElevatedCard(
+                onClick = onNavigateToInsights,
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                shape = RoundedCornerShape(18.dp)
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("✨", fontSize = 24.sp)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "A pattern worth noticing",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = "You feel better on days when you exercise.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text("✦", fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "A PATTERN WORTH NOTICING",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "Your energy was higher on days you moved.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "Based on 6 matched days",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
+                            )
+                        }
                     }
+                    Text(
+                        text = "Explore insight →",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -276,13 +300,14 @@ fun TodayScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Today's Habits",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "Today's habits",
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
                     color = MaterialTheme.colorScheme.onBackground
                 )
-                TextButton(onClick = onAddHabit) {
-                    Text("Add new", color = MaterialTheme.colorScheme.primary)
+                TextButton(onClick = onOpenAddHabitSheet) {
+                    Text("Add new +", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -291,100 +316,95 @@ fun TodayScreen(
         items(activeHabits, key = { it.id }) { habit ->
             val log = logMap[habit.id]
             val isCompleted = log?.completed == true
-            val isConfirmed = log?.isConfirmed == false
+            val streak = calculateStreak(habit)
+            val isAwaitingConfirmation = log?.isConfirmed == false
+
+            val (iconSymbol, tileBg) = when (habit.iconKey) {
+                "sleep" -> "☾" to MaterialTheme.colorScheme.surfaceVariant
+                "move" -> "↗" to MaterialTheme.colorScheme.surfaceVariant
+                "water" -> "◈" to MaterialTheme.colorScheme.surfaceVariant
+                "phone" -> "▣" to MaterialTheme.colorScheme.surfaceVariant
+                "book" -> "▤" to MaterialTheme.colorScheme.surfaceVariant
+                else -> habit.name.take(1).uppercase() to MaterialTheme.colorScheme.surfaceVariant
+            }
 
             ElevatedCard(
-                onClick = { onToggleHabit(habit.id) },
+                onClick = { onOpenHabitDetail(habit) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.elevatedCardColors(
-                    containerColor = if (isCompleted) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant
-                )
+                    containerColor = if (isCompleted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(18.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(12.dp),
+                        color = tileBg,
                         modifier = Modifier.size(40.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
-                                text = habit.name.take(1).uppercase(),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                text = iconSymbol,
+                                fontSize = 18.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
 
-                    Spacer(Modifier.width(16.dp))
+                    Spacer(Modifier.width(14.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = habit.name,
                             style = MaterialTheme.typography.titleMedium,
                             textDecoration = if (isCompleted) TextDecoration.LineThrough else TextDecoration.None,
-                            color = if (isCompleted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                            color = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                            fontSize = 14.5.sp
                         )
                         Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = "${calculateStreak(habit)} days streak",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    if (isConfirmed) {
-                        IconButton(onClick = { onConfirmPassiveLog(habit.id) }) {
-                            Icon(Icons.Default.Sync, contentDescription = "Tap to confirm sync", tint = MaterialTheme.colorScheme.secondary)
+                        if (isAwaitingConfirmation) {
+                            Text(
+                                text = "◷ 1.6 L of 2 L · Tap to confirm",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontSize = 11.5.sp,
+                                modifier = Modifier.clickable { onConfirmPassiveLog(habit.id) }
+                            )
+                        } else {
+                            Text(
+                                text = if (streak > 0) "♨ $streak-day streak" else if (isCompleted) "Completed today" else "Not logged yet",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (streak > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.5.sp
+                            )
                         }
-                    } else {
-                        Checkbox(
-                            checked = isCompleted,
-                            onCheckedChange = { onToggleHabit(habit.id) }
-                        )
                     }
-                }
-            }
-        }
 
-        item { Spacer(Modifier.height(32.dp)) }
-    }
-
-    if (showMoodDialog) {
-        AlertDialog(
-            onDismissRequest = { showMoodDialog = false },
-            title = { Text("Log Today's Mood") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Select your mood score from 1 to 10:")
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    IconButton(
+                        onClick = { onToggleHabit(habit.id) },
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        (1..10).forEach { score ->
-                            OutlinedButton(
-                                onClick = {
-                                    onMoodSelected(score)
-                                    showMoodDialog = false
-                                },
-                                modifier = Modifier.size(36.dp),
-                                contentPadding = PaddingValues(0.dp)
-                            ) {
-                                Text("$score", fontSize = 12.sp)
+                        Surface(
+                            shape = RoundedCornerShape(9.dp),
+                            color = if (isCompleted) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            border = CardDefaults.outlinedCardBorder(),
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (isCompleted) {
+                                    Text("✓", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                }
                             }
                         }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { showMoodDialog = false }) {
-                    Text("Close")
-                }
             }
-        )
+        }
     }
 }

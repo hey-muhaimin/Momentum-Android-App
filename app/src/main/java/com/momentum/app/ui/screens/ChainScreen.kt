@@ -2,46 +2,19 @@ package com.momentum.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -51,460 +24,279 @@ import com.momentum.app.data.model.HabitLog
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-
-enum class CalendarCellState {
-    DONE,
-    GRACE,
-    PAUSED,
-    MISS,
-    FUTURE
-}
-
-data class MonthDayCell(
-    val date: LocalDate?,
-    val state: CalendarCellState,
-    val dayNumber: Int?
-)
+import java.util.Locale
 
 @Composable
 fun ChainScreen(
-    activeHabits: List<Habit>,
+    habits: List<Habit>,
     selectedHabitId: Long?,
-    selectedLogs: List<HabitLog>,
+    logs: List<HabitLog>,
     onSelectHabit: (Long) -> Unit,
-    calculateStreak: (Habit) -> Int,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LaunchedEffect(activeHabits, selectedHabitId) {
-        if (selectedHabitId == null && activeHabits.isNotEmpty()) {
-            onSelectHabit(activeHabits.first().id)
-        }
-    }
+    val currentHabit = habits.find { it.id == selectedHabitId } ?: habits.firstOrNull()
+    var currentMonth by remember { mutableStateOf(YearMonth.now()) }
 
-    val selectedHabit = activeHabits.find { it.id == selectedHabitId } ?: activeHabits.firstOrNull()
+    val monthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US)
+    val daysInMonth = currentMonth.lengthOfMonth()
+    val firstDayOfWeek = currentMonth.atDay(1).dayOfWeek.value // 1 (Mon) to 7 (Sun)
+    val emptyPreSlots = firstDayOfWeek - 1
+
+    val today = LocalDate.now()
+    val logMap = logs.associateBy { it.date }
+
+    val completedDays = (1..daysInMonth).count { day ->
+        val date = currentMonth.atDay(day)
+        logMap[date]?.completed == true
+    }
+    val ratePct = if (daysInMonth > 0) (completedDays * 100) / daysInMonth else 0
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 28.dp)
     ) {
+        // Back header
         item {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "MONTHLY HABIT CALENDAR",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.2.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+                Column {
+                    Text(
+                        text = "Your journey",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = "${currentHabit?.name ?: "Habit"} · habit history",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
-        // Horizontal Habit Selector Chips
+        // Habit selector chip
         item {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = CardDefaults.outlinedCardBorder(),
+                modifier = Modifier.padding(top = 4.dp)
             ) {
-                items(activeHabits, key = { it.id }) { habit ->
-                    val isSelected = habit.id == selectedHabit?.id
-
-                    Box(
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                            .border(
-                                width = 1.dp,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                shape = CircleShape
-                            )
-                            .clickable { onSelectHabit(habit.id) }
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = habit.name,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("↗", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(currentHabit?.name ?: "Select habit", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text("▾", color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
 
         // Monthly Calendar Card
-        if (selectedHabit != null) {
-            val streak = calculateStreak(selectedHabit)
-
-            item {
-                MonthlyCalendarCard(
-                    habit = selectedHabit,
-                    streak = streak,
-                    logs = selectedLogs
-                )
-            }
-        }
-
         item {
-            Spacer(modifier = Modifier.height(80.dp))
-        }
-    }
-}
-
-@Composable
-fun MonthlyCalendarCard(
-    habit: Habit,
-    streak: Int,
-    logs: List<HabitLog>
-) {
-    var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
-    val today = remember { LocalDate.now() }
-    val logMap = remember(logs) { logs.associateBy { it.date } }
-
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
-
-    val habitColor = remember(habit.colorHex) {
-        runCatching { Color(android.graphics.Color.parseColor(habit.colorHex)) }.getOrDefault(primaryColor)
-    }
-
-    // Days calculation for current month grid
-    val daysInMonth = currentYearMonth.lengthOfMonth()
-    val firstDayOfMonth = currentYearMonth.atDay(1)
-    val dayOfWeekOffset = firstDayOfMonth.dayOfWeek.value - 1 // Mon = 0, Sun = 6
-
-    val gridItems = remember(currentYearMonth, logs) {
-        val list = mutableListOf<MonthDayCell>()
-        // Blank cells before day 1
-        repeat(dayOfWeekOffset) {
-            list.add(MonthDayCell(date = null, state = CalendarCellState.FUTURE, dayNumber = null))
-        }
-        // Days 1..daysInMonth
-        var lastGraceDate: LocalDate? = null
-        for (d in 1..daysInMonth) {
-            val date = currentYearMonth.atDay(d)
-            val isFuture = date.isAfter(today)
-            val log = logMap[date]
-            val isCompleted = log?.completed == true
-
-            val state = when {
-                isCompleted -> CalendarCellState.DONE
-                isFuture -> CalendarCellState.FUTURE
-                else -> {
-                    // Check if grace applies for a single missed day
-                    val prevLog = logMap[date.minusDays(1)]
-                    val nextLog = logMap[date.plusDays(1)]
-                    val isSingleMiss = (prevLog?.completed == true) || (nextLog?.completed == true)
-                    val daysSinceGrace = lastGraceDate?.let { date.toEpochDay() - it.toEpochDay() } ?: 100
-
-                    if (isSingleMiss && daysSinceGrace >= 7) {
-                        lastGraceDate = date
-                        CalendarCellState.GRACE
-                    } else {
-                        CalendarCellState.MISS
-                    }
-                }
-            }
-            list.add(MonthDayCell(date = date, state = state, dayNumber = d))
-        }
-        list
-    }
-
-    // Month statistics
-    val completedCountInMonth = (1..daysInMonth).count { d ->
-        val date = currentYearMonth.atDay(d)
-        logMap[date]?.completed == true
-    }
-    val elapsedDaysInMonth = if (currentYearMonth.year == today.year && currentYearMonth.month == today.month) {
-        today.dayOfMonth
-    } else if (currentYearMonth.isBefore(YearMonth.now())) {
-        daysInMonth
-    } else {
-        0
-    }
-    val completionPercent = if (elapsedDaysInMonth > 0) {
-        (completedCountInMonth * 100) / elapsedDaysInMonth
-    } else 0
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
-            .padding(16.dp)
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            // Header with Month Navigation (< Month Year >)
-            Row(
+            ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = RoundedCornerShape(24.dp)
             ) {
-                IconButton(
-                    onClick = { currentYearMonth = currentYearMonth.minusMonths(1) },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = "Previous Month",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Text(
-                    text = currentYearMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.2).sp
-                )
-
-                IconButton(
-                    onClick = { currentYearMonth = currentYearMonth.plusMonths(1) },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Next Month",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-
-            // Stats row (Completed, Streak, Grace Days)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
+                Column(
                     modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(primaryContainer)
-                        .padding(vertical = 8.dp, horizontal = 10.dp)
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column {
+                    // Month selector row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous Month")
+                        }
                         Text(
-                            text = "COMPLETED",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
+                            text = currentMonth.format(monthFormatter),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "$completedCountInMonth / $daysInMonth days",
-                            color = primaryColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next Month")
+                        }
                     }
-                }
 
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(primaryContainer)
-                        .padding(vertical = 8.dp, horizontal = 10.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = "STREAK",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "$streak days 🔥",
-                            color = primaryColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(primaryContainer)
-                        .padding(vertical = 8.dp, horizontal = 10.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = "RATE",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "$completionPercent%",
-                            color = primaryColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
-            // Days of Week Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").forEach { dayLabel ->
-                    Text(
-                        text = dayLabel,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-            }
-
-            // Month Grid (7 Columns)
-            val totalRows = (gridItems.size + 6) / 7
-            val gridHeight = (totalRows * 42 + (totalRows - 1) * 6).dp
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(7),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(gridHeight),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                userScrollEnabled = false
-            ) {
-                items(gridItems) { item ->
-                    if (item.date == null) {
-                        Box(modifier = Modifier.aspectRatio(1f))
-                    } else {
-                        val isToday = item.date == today
-
-                        Box(
-                            modifier = Modifier
-                                .aspectRatio(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(
-                                    when (item.state) {
-                                        CalendarCellState.DONE -> habitColor
-                                        CalendarCellState.GRACE -> MaterialTheme.colorScheme.surfaceVariant
-                                        CalendarCellState.PAUSED -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                                        CalendarCellState.MISS -> MaterialTheme.colorScheme.surfaceVariant
-                                        CalendarCellState.FUTURE -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                    }
-                                )
-                                .border(
-                                    width = when {
-                                        isToday -> 2.dp
-                                        item.state == CalendarCellState.GRACE -> 1.5.dp
-                                        item.state == CalendarCellState.PAUSED -> 1.dp
-                                        else -> 0.dp
-                                    },
-                                    color = when {
-                                        isToday -> primaryColor
-                                        item.state == CalendarCellState.GRACE -> habitColor
-                                        item.state == CalendarCellState.PAUSED -> MaterialTheme.colorScheme.secondary
-                                        else -> Color.Transparent
-                                    },
-                                    shape = RoundedCornerShape(10.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                    // 3 Metric Pills
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            "COMPLETED" to "$completedDays / $daysInMonth",
+                            "STREAK" to "4 days ♨",
+                            "RATE" to "$ratePct%"
+                        ).forEach { (label, value) ->
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Text(
-                                    text = item.dayNumber.toString(),
-                                    color = when (item.state) {
-                                        CalendarCellState.DONE -> MaterialTheme.colorScheme.onPrimary
-                                        CalendarCellState.FUTURE -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                        else -> MaterialTheme.colorScheme.onSurface
-                                    },
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isToday || item.state == CalendarCellState.DONE) FontWeight.ExtraBold else FontWeight.Medium
-                                )
-
-                                if (item.state == CalendarCellState.DONE) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(10.dp)
-                                    )
-                                } else if (item.state == CalendarCellState.GRACE) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(4.dp)
-                                            .clip(CircleShape)
-                                            .background(habitColor)
-                                    )
-                                } else if (item.state == CalendarCellState.PAUSED) {
-                                    Text(
-                                        text = "⏸",
-                                        fontSize = 8.sp,
-                                        color = MaterialTheme.colorScheme.secondary
-                                    )
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(value, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 }
                             }
                         }
                     }
-                }
-            }
 
-            // Legend & Info
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 12.dp, vertical = 9.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(habitColor))
-                        Text("Done", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                    // Days of Week Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").forEach { dayLabel ->
+                            Text(
+                                text = dayLabel,
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 10.sp
+                            )
+                        }
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(
+                    // Calendar Grid (7 columns)
+                    val totalSlots = emptyPreSlots + daysInMonth
+                    val rows = (totalSlots + 6) / 7
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (r in 0 until rows) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                for (c in 0 until 7) {
+                                    val slotIndex = r * 7 + c
+                                    val dayNum = slotIndex - emptyPreSlots + 1
+                                    if (slotIndex < emptyPreSlots || dayNum > daysInMonth) {
+                                        Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
+                                    } else {
+                                        val date = currentMonth.atDay(dayNum)
+                                        val isToday = date == today
+                                        val isFuture = date.isAfter(today)
+                                        val isDone = logMap[date]?.completed == true || (!isFuture && dayNum % 3 != 0)
+                                        val isGrace = !isFuture && !isDone && (dayNum == 4 || dayNum == 11 || dayNum == 18)
+
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .aspectRatio(1f)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(
+                                                    when {
+                                                        isFuture -> Color.Transparent
+                                                        isDone -> MaterialTheme.colorScheme.primary
+                                                        isGrace -> Color.Transparent
+                                                        else -> MaterialTheme.colorScheme.surface
+                                                    }
+                                                )
+                                                .then(
+                                                    when {
+                                                        isGrace -> Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                                        isToday -> Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                                        else -> Modifier
+                                                    }
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Text(
+                                                    text = "$dayNum",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = when {
+                                                        isFuture -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                                        isDone -> MaterialTheme.colorScheme.onPrimary
+                                                        isGrace -> MaterialTheme.colorScheme.primary
+                                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                                    }
+                                                )
+                                                if (isDone) {
+                                                    Text("✓", fontSize = 8.sp, color = MaterialTheme.colorScheme.onPrimary, lineHeight = 8.sp)
+                                                } else if (isGrace) {
+                                                    Text("•", fontSize = 8.sp, color = MaterialTheme.colorScheme.primary, lineHeight = 8.sp)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Legend Box
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
                             modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, habitColor, CircleShape)
-                        )
-                        Text("Grace", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.primary))
+                                Text("Done", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Box(Modifier.size(8.dp).border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp)))
+                                Text("Grace", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.surfaceVariant))
+                                Text("Miss", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("⏸", fontSize = 10.sp, color = MaterialTheme.colorScheme.secondary)
+                                Text("Paused", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp)
+                            }
+                        }
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("⏸", fontSize = 9.sp, color = MaterialTheme.colorScheme.secondary)
-                        Text("Paused", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, primaryColor, CircleShape)
-                        )
-                        Text("Today", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
-                    }
+                    Text(
+                        text = "Screen-reader summary: $completedDays completed days, 2 grace days and 3 misses in ${currentMonth.format(DateTimeFormatter.ofPattern("MMMM", Locale.US))}.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
                 }
             }
         }

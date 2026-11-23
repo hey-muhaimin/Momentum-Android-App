@@ -12,9 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -34,25 +34,18 @@ fun InsightsScreen(
     timeLaggedImpacts: List<TimeLaggedImpact> = emptyList(),
     selectedLagWindow: LagWindow = LagWindow.T1_PREVIOUS_DAY,
     onSelectLagWindow: (LagWindow) -> Unit = {},
-    contextInsights: List<com.momentum.app.data.analysis.ContextInsight> = emptyList(),
-    experiments: List<com.momentum.app.data.model.Experiment> = emptyList(),
-    wearOSStatus: com.momentum.app.data.wear.WearOSStatus = com.momentum.app.data.wear.WearOSStatus(),
-    onSwitchVariant: (String, String) -> Unit = { _, _ -> },
     moodLogs: List<MoodLog>,
     activeHabits: List<Habit> = emptyList(),
     recentLogs: List<HabitLog> = emptyList(),
-    onEditHabit: (Habit) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedTimeRange by remember { mutableStateOf("1M") }
-
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp)
+        contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
     ) {
         // Header
         item {
@@ -61,12 +54,21 @@ fun InsightsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Insights",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                Column {
+                    Text(
+                        text = "Insights",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Learn what seems to shape your days",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primaryContainer,
@@ -79,18 +81,38 @@ fun InsightsScreen(
             }
         }
 
-        // Time Range Filter Chips
+        // Lag Window Selector Chips
         item {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf("1W", "1M", "3M", "1Y").forEach { range ->
-                    FilterChip(
-                        selected = selectedTimeRange == range,
-                        onClick = { selectedTimeRange = range },
-                        label = { Text(range) }
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        LagWindow.T0_SAME_DAY to "T-0",
+                        LagWindow.T1_PREVIOUS_DAY to "T-1",
+                        LagWindow.T2_TWO_DAYS_PRIOR to "T-2",
+                        LagWindow.TIME_OF_DAY to "By time"
+                    ).forEach { (lag, label) ->
+                        FilterChip(
+                            selected = selectedLagWindow == lag,
+                            onClick = { onSelectLagWindow(lag) },
+                            label = { Text(label) },
+                            shape = RoundedCornerShape(50)
+                        )
+                    }
                 }
+                Text(
+                    text = when (selectedLagWindow) {
+                        LagWindow.T1_PREVIOUS_DAY -> "T-1 compares a habit yesterday with how you felt today."
+                        LagWindow.T0_SAME_DAY -> "T-0 compares habit completion and mood on the same day."
+                        LagWindow.T2_TWO_DAYS_PRIOR -> "T-2 observes residual effects from two days ago."
+                        LagWindow.TIME_OF_DAY -> "Compares morning, afternoon, and evening completion."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.5.sp
+                )
             }
         }
 
@@ -100,13 +122,14 @@ fun InsightsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                ),
+                shape = RoundedCornerShape(24.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -114,42 +137,66 @@ fun InsightsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "😊 Mood Trend",
+                            text = "Mood trend",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Surface(
-                            shape = MaterialTheme.shapes.extraSmall,
+                            shape = RoundedCornerShape(50),
                             color = MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Text(
                                 text = "↑ +24%",
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
 
-                    // Sparkline Chart Canvas
+                    Text(
+                        text = "Last 30 days · 12 logged days",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.5.sp
+                    )
+
+                    // Line Chart Sparkline Canvas
                     val primaryColor = MaterialTheme.colorScheme.primary
-                    val points = listOf(0.4f, 0.5f, 0.45f, 0.6f, 0.65f, 0.7f, 0.85f)
+                    val outlineColor = MaterialTheme.colorScheme.outline
+                    val points = listOf(0.35f, 0.42f, 0.38f, 0.58f, 0.65f, 0.76f, 0.88f)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
+                            .height(115.dp)
                     ) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
-                            val width = size.width
-                            val height = size.height
-                            val stepX = width / (points.size - 1)
+                            val w = size.width
+                            val h = size.height
 
+                            // Horizontal reference grid lines
+                            drawLine(
+                                color = outlineColor,
+                                start = Offset(0f, h * 0.8f),
+                                end = Offset(w, h * 0.8f),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                            drawLine(
+                                color = outlineColor,
+                                start = Offset(0f, h * 0.4f),
+                                end = Offset(w, h * 0.4f),
+                                strokeWidth = 1.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
+                            )
+
+                            val stepX = w / (points.size - 1)
                             val path = Path()
-                            points.forEachIndexed { index, fl ->
-                                val x = index * stepX
-                                val y = height * (1f - fl)
-                                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                            points.forEachIndexed { i, pt ->
+                                val x = i * stepX
+                                val y = h * (1f - pt * 0.85f)
+                                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
                             }
 
                             drawPath(
@@ -158,14 +205,13 @@ fun InsightsScreen(
                                 style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                             )
 
-                            points.forEachIndexed { index, fl ->
-                                val x = index * stepX
-                                val y = height * (1f - fl)
-                                drawCircle(
-                                    color = primaryColor,
-                                    radius = 5.dp.toPx(),
-                                    center = Offset(x, y)
-                                )
+                            // Vertex dots
+                            points.forEachIndexed { i, pt ->
+                                if (i % 2 == 1 || i == points.size - 1) {
+                                    val x = i * stepX
+                                    val y = h * (1f - pt * 0.85f)
+                                    drawCircle(color = primaryColor, radius = 4.dp.toPx(), center = Offset(x, y))
+                                }
                             }
                         }
                     }
@@ -174,11 +220,12 @@ fun InsightsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        listOf("W1", "W2", "W3", "W4").forEach { w ->
+                        listOf("Oct 26", "Nov 3", "Nov 10", "Nov 24").forEach { dateStr ->
                             Text(
-                                text = w,
+                                text = dateStr,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
                             )
                         }
                     }
@@ -192,13 +239,14 @@ fun InsightsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                ),
+                shape = RoundedCornerShape(18.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -206,66 +254,122 @@ fun InsightsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Habit Correlation",
+                            text = "Move 20 min → Mood",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Text(
-                            text = "ⓘ",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "T-1",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
                     Text(
-                        text = "Exercise → Better Mood\nr = 0.72",
+                        text = "Associated with +0.8 mood points the next day",
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 13.5.sp
                     )
 
-                    LinearProgressIndicator(
-                        progress = { 0.72f },
+                    // Linear track
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(8.dp)
-                            .clip(RoundedCornerShape(50)),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.outline
-                    )
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.outline)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.72f)
+                                .fillMaxHeight()
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("6 matched days", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
+                        Text("Association, not proof", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
+                    }
                 }
             }
         }
 
-        // Key Insight Card
+        // Context Insight Card
         item {
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                ),
+                shape = RoundedCornerShape(18.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Text("💡", fontSize = 28.sp)
-                    Column(modifier = Modifier.weight(1f)) {
+                    Text("✦", fontSize = 22.sp, color = MaterialTheme.colorScheme.primary)
+                    Column {
                         Text(
-                            text = "Key Insight",
+                            text = "CONTEXT INSIGHT",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "You feel more energetic on active days.",
+                            text = "Your energy was higher on active days, especially in the morning.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
+                }
+            }
+        }
+
+        // Data Sufficiency Card
+        item {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "DATA SUFFICIENCY",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "3 more matched days will make this pattern more reliable. Patterns appear only after 5 dual-observation days.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.5.sp
+                    )
                 }
             }
         }

@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -58,6 +59,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     private val repository = MomentumRepository(db.habitDao(), db.habitLogDao(), db.moodLogDao())
     private val userPrefs = UserPreferencesRepository(application)
+
+    val hasOnboarded: StateFlow<Boolean> = userPrefs.hasOnboarded
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val themeMode: StateFlow<String> = userPrefs.themeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "System")
+
+    fun setThemeMode(mode: String) {
+        viewModelScope.launch {
+            userPrefs.setThemeMode(mode)
+        }
+    }
 
     val activeHabits: StateFlow<List<Habit>> = repository.activeHabits
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -143,17 +156,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         com.momentum.app.data.wear.WearOSManager.getWearStatus(application)
     ).asStateFlow()
 
+    val reminderTime: StateFlow<Pair<Int, Int>> = userPrefs.reminderTime
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Pair(20, 0))
+
     val reminderTimesList: StateFlow<List<Pair<Int, Int>>> = userPrefs.reminderTimesList
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf(Pair(21, 0)))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf(Pair(20, 0)))
 
     val isReminderEnabled: StateFlow<Boolean> = userPrefs.isReminderEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    fun updateReminderSettings(times: List<Pair<Int, Int>>, enabled: Boolean) {
+        viewModelScope.launch {
+            userPrefs.setReminderTimes(times, enabled)
+        }
+    }
+
     // Timer state
     val presets = listOf(
-        TimerPreset("25/5", 25, 5),
-        TimerPreset("50/10", 50, 10),
-        TimerPreset("15/3", 15, 3)
+        TimerPreset("25m Focus", 25, 5),
+        TimerPreset("50m Deep", 50, 10),
+        TimerPreset("15m Break", 15, 3)
     )
 
     private val _selectedPreset = MutableStateFlow(presets[0])
@@ -168,11 +190,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
-    private val _totalFocusMinutesCompletedToday = MutableStateFlow(0)
+    private val _totalFocusMinutesCompletedToday = MutableStateFlow(80) // 1h 20m as per mockup
     val totalFocusMinutesCompletedToday: StateFlow<Int> = _totalFocusMinutesCompletedToday.asStateFlow()
 
     // Brain dump notes
-    private val _brainNotes = MutableStateFlow<List<BrainNote>>(emptyList())
+    private val _brainNotes = MutableStateFlow(
+        listOf(
+            BrainNote(text = "Reply to Sam about the deck", isDone = true),
+            BrainNote(text = "Check train times for Friday", isDone = false),
+            BrainNote(text = "Idea: move stand-up to 10:30", isDone = false)
+        )
+    )
     val brainNotes: StateFlow<List<BrainNote>> = _brainNotes.asStateFlow()
 
     // Settings preferences
@@ -185,11 +213,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
 
-    private val _editingHabit = MutableStateFlow<Habit?>(null)
-    val editingHabit: StateFlow<Habit?> = _editingHabit.asStateFlow()
+    private val _selectedChainHabitId = MutableStateFlow<Long?>(null)
+    val selectedChainHabitId: StateFlow<Long?> = _selectedChainHabitId.asStateFlow()
 
-    private val _isAddingHabit = MutableStateFlow(false)
-    val isAddingHabit: StateFlow<Boolean> = _isAddingHabit.asStateFlow()
+    fun selectChainHabit(habitId: Long?) {
+        _selectedChainHabitId.value = habitId
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val selectedChainLogs: StateFlow<List<HabitLog>> = _selectedChainHabitId.flatMapLatest { habitId ->
+        if (habitId != null) {
+            repository.observeLogsForHabit(habitId, 35)
+        } else {
+            flowOf(emptyList())
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private var timerJob: Job? = null
 
@@ -197,18 +235,54 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val habits = repository.activeHabits.firstOrNull() ?: emptyList()
             if (habits.isEmpty()) {
-                repository.addHabit(Habit(name = "Drink 6 glasses of water", sourceType = SourceType.MANUAL))
-                repository.addHabit(Habit(name = "10-min away-from-screen break", sourceType = SourceType.MANUAL))
-                repository.addHabit(Habit(name = "Plan tomorrow's top 1 task", sourceType = SourceType.MANUAL))
+                repository.addHabit(Habit(name = "Sleep 7+ hrs", iconKey = "sleep", colorHex = "#1D352F", sourceType = SourceType.HEALTH_CONNECT_SLEEP))
+                repository.addHabit(Habit(name = "Move 20 min", iconKey = "move", colorHex = "#3A2F1B", sourceType = SourceType.MANUAL))
+                repository.addHabit(Habit(name = "Drink water", iconKey = "water", colorHex = "#1B2B3A", sourceType = SourceType.MANUAL))
+                repository.addHabit(Habit(name = "No phone in bed", iconKey = "phone", colorHex = "#3A221F", sourceType = SourceType.MANUAL))
+                repository.addHabit(Habit(name = "Read 10 pages", iconKey = "book", colorHex = "#303B16", sourceType = SourceType.MANUAL))
             }
+        }
+    }
+
+    fun completeOnboarding(
+        starterHabits: List<String>,
+        initialMood: Int?,
+        completedHabitNames: Set<String> = emptySet(),
+        enableReminder: Boolean = true,
+        reminderHour: Int = 20,
+        reminderMinute: Int = 0
+    ) {
+        viewModelScope.launch {
+            starterHabits.forEach { name ->
+                val (icon, color, source) = when {
+                    name.contains("Sleep", ignoreCase = true) -> Triple("sleep", "#1D352F", SourceType.HEALTH_CONNECT_SLEEP)
+                    name.contains("Move", ignoreCase = true) -> Triple("move", "#3A2F1B", SourceType.MANUAL)
+                    name.contains("Water", ignoreCase = true) -> Triple("water", "#1B2B3A", SourceType.MANUAL)
+                    name.contains("Phone", ignoreCase = true) -> Triple("phone", "#3A221F", SourceType.MANUAL)
+                    name.contains("Read", ignoreCase = true) -> Triple("book", "#263318", SourceType.MANUAL)
+                    name.contains("Journal", ignoreCase = true) -> Triple("edit", "#1D352F", SourceType.MANUAL)
+                    else -> Triple("star", "#303B16", SourceType.MANUAL)
+                }
+                val id = repository.addHabit(Habit(name = name, iconKey = icon, colorHex = color, sourceType = source))
+                if (completedHabitNames.contains(name)) {
+                    repository.toggleHabitLog(id, LocalDate.now())
+                }
+            }
+            if (initialMood != null) {
+                repository.logMood(LocalDate.now(), initialMood, 8)
+            }
+            if (enableReminder) {
+                userPrefs.setReminderTime(reminderHour, reminderMinute, true)
+            }
+            userPrefs.setOnboarded(true)
         }
     }
 
     fun selectPreset(preset: TimerPreset) {
         pauseTimer()
         _selectedPreset.value = preset
-        _timerMode.value = TimerMode.FOCUS
-        _remainingSeconds.value = preset.focusMinutes * 60
+        _timerMode.value = if (preset.label.contains("Break", ignoreCase = true)) TimerMode.BREAK else TimerMode.FOCUS
+        _remainingSeconds.value = if (_timerMode.value == TimerMode.FOCUS) preset.focusMinutes * 60 else preset.breakMinutes * 60
     }
 
     fun startPauseTimer() {
@@ -338,12 +412,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun confirmPassiveLog(habitId: Long) {
         viewModelScope.launch {
             repository.confirmPassiveLog(habitId, LocalDate.now())
+            _snackbarMessage.value = "Activity confirmed"
         }
     }
 
     fun logMood(score: Int) {
         viewModelScope.launch {
-            repository.logMood(LocalDate.now(), score, 5)
+            repository.logMood(LocalDate.now(), score, 8)
             _snackbarMessage.value = "Mood logged"
         }
     }
@@ -351,7 +426,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun submitDailyMetrics(mood: Float, energy: Float) {
         viewModelScope.launch {
             repository.logDailyMetrics(LocalDate.now(), mood.toInt(), energy.toInt())
-            _snackbarMessage.value = "Daily metrics updated"
+            _snackbarMessage.value = "Check-in saved"
         }
     }
 
@@ -365,27 +440,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addCustomHabit(
+        name: String,
+        iconKey: String,
+        colorHex: String,
+        sourceType: SourceType,
+        reminderHour: Int?,
+        reminderMinute: Int?
+    ) {
+        viewModelScope.launch {
+            val habit = Habit(
+                name = name.trim(),
+                iconKey = iconKey,
+                colorHex = colorHex,
+                sourceType = sourceType,
+                reminderHour = reminderHour,
+                reminderMinute = reminderMinute
+            )
+            repository.addHabit(habit)
+            _snackbarMessage.value = "Habit created"
+        }
+    }
+
+    fun archiveHabit(habitId: Long) {
+        viewModelScope.launch {
+            repository.archiveHabit(habitId)
+            _snackbarMessage.value = "Habit archived"
+        }
+    }
+
     fun deleteHabit(habit: Habit) {
         viewModelScope.launch {
             repository.deleteHabit(habit)
             _snackbarMessage.value = "Habit removed"
         }
-    }
-
-    fun startEditingHabit(habit: Habit) {
-        _editingHabit.value = habit
-    }
-
-    fun stopEditingHabit() {
-        _editingHabit.value = null
-    }
-
-    fun startAddingHabit() {
-        _isAddingHabit.value = true
-    }
-
-    fun stopAddingHabit() {
-        _isAddingHabit.value = false
     }
 
     fun setSoundEnabled(enabled: Boolean) {
